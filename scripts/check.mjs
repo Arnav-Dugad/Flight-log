@@ -15,9 +15,10 @@ const required = [
 
 await Promise.all(required.map((file) => access(file)));
 
-const [html, app, airportText] = await Promise.all([
+const [html, app, css, airportText] = await Promise.all([
   readFile("index.html", "utf8"),
   readFile("app.js", "utf8"),
+  readFile("styles.css", "utf8"),
   readFile("data/airports.json", "utf8"),
 ]);
 
@@ -49,5 +50,10 @@ for (const pattern of forbidden) {
 
 if (!app.includes('projectId: "flight-log-b2146"')) throw new Error("Expected Firebase project is not configured.");
 if (!app.includes('byId("footer-year").textContent = new Date().getFullYear()')) throw new Error("Footer year is not dynamic.");
+if (app.includes("segment-cost") || app.includes("segment-currency")) throw new Error("Segment-level pricing must not return; connected journeys use one total price.");
+if (!app.includes("schemaVersion: 3") || !app.includes('byId("journey-total-price")')) throw new Error("Journey-level pricing schema is incomplete.");
+if (!app.includes(".arcDashLength(1)") || !app.includes(".ringsData([])")) throw new Error("Globe routes and place markers are not configured as static.");
+if (!css.includes("grid-template-columns: repeat(12, minmax(0, 1fr))") || !css.includes("@media (max-width: 410px)")) throw new Error("Responsive builder layout safeguards are missing.");
+if (css.includes("translate(-50%, -50%) scale")) throw new Error("Airport markers must not shift position on interaction.");
 
 console.log(`Checks passed: ${required.length} required files, ${airportPayload.airports.length.toLocaleString()} airports, ${htmlIds.size} unique UI ids.`);

@@ -359,10 +359,8 @@ async function initGlobe() {
       .arcColor("color")
       .arcAltitude("altitude")
       .arcStroke("stroke")
-      .arcDashLength(0.72)
-      .arcDashGap(0.24)
-      .arcDashInitialGap(() => Math.random())
-      .arcDashAnimateTime((arc) => arc.status === "planned" ? 2600 : 1900)
+      .arcDashLength(1)
+      .arcDashGap(0)
       .arcLabel((arc) => `${escapeHtml(arc.from)} → ${escapeHtml(arc.to)} · ${escapeHtml(arc.airline)}`)
       .onArcClick((arc) => openJourneyDetail(arc.journeyId))
       .pointsData([])
@@ -448,7 +446,7 @@ function updateGlobe() {
   state.world
     .arcsData(journeyArcs())
     .pointsData(airports)
-    .ringsData(airports.slice(0, 14))
+    .ringsData([])
     .htmlElementsData(state.settings.labels ? airports : []);
 }
 
@@ -535,13 +533,10 @@ function metricsForJourney(journey) {
     state.airportByIata.get(segment.from)?.country,
     state.airportByIata.get(segment.to)?.country,
   ]).filter(Boolean));
-  const currencies = {};
-  for (const segment of segments) {
-    if (!segment.cost) continue;
-    const currency = segment.currency || "INR";
-    currencies[currency] = (currencies[currency] || 0) + Number(segment.cost);
-  }
-  return { distanceKm, carbonKg, airMinutes, countries, currencies, connections: journeyConnections(journey) };
+  const legacyTotal = segments.reduce((sum, segment) => sum + Number(segment.cost || 0), 0);
+  const totalCost = Number(journey?.totalCost ?? legacyTotal) || 0;
+  const currency = journey?.currency || segments.find((segment) => segment.currency)?.currency || "INR";
+  return { distanceKm, carbonKg, airMinutes, countries, totalCost, currency, connections: journeyConnections(journey) };
 }
 
 function calculateStats(journeys = state.journeys) {
@@ -554,7 +549,8 @@ function calculateStats(journeys = state.journeys) {
   let distanceKm = 0;
   let carbonKg = 0;
   let airMinutes = 0;
-  let inrSpend = 0;
+  const spendCurrency = state.settings.currency || "INR";
+  let trackedSpend = 0;
   let connections = 0;
   let clockShifts = 0;
   let indianSegments = 0;
@@ -566,7 +562,6 @@ function calculateStats(journeys = state.journeys) {
     distanceKm += distance;
     carbonKg += carbonForDistance(distance);
     airMinutes += durationMinutesForSegment(segment);
-    if ((segment.currency || "INR") === "INR") inrSpend += Number(segment.cost || 0);
     if (segment.airlineCode) airlines.set(segment.airlineCode, (airlines.get(segment.airlineCode) || 0) + 1);
     for (const airport of [from, to]) {
       if (!airport) continue;
@@ -578,6 +573,11 @@ function calculateStats(journeys = state.journeys) {
     if (from?.country === "IN" && to?.country === "IN") indianSegments += 1;
     const shift = timezoneOffsetHours(segment.from, segment.to, safeDate(segment.departureAt) || new Date());
     if (shift && Math.abs(shift) >= 1) clockShifts += 1;
+  }
+
+  for (const journey of journeys) {
+    const journeyMetrics = metricsForJourney(journey);
+    if (journeyMetrics.currency === spendCurrency) trackedSpend += journeyMetrics.totalCost;
   }
 
   connections = journeys.reduce((sum, journey) => sum + Math.max(0, (journey.segments?.length || 0) - 1), 0);
@@ -605,7 +605,8 @@ function calculateStats(journeys = state.journeys) {
     distanceKm: Math.round(distanceKm),
     carbonKg,
     airMinutes,
-    inrSpend,
+    trackedSpend,
+    spendCurrency,
     connections,
     riskyConnections,
     safeConnections,
@@ -683,7 +684,7 @@ function renderJourneyList() {
         </div>
         <div class="journey-places">
           <strong>${escapeHtml(codes[0] || "—")}</strong>
-          <span class="route-line ${connections ? "multi" : ""}"><i class="ph-fill ph-airplane-tilt"></i></span>
+          <span class="route-line ${connections ? "multi" : ""}">${connections ? `<span class="route-stops">${codes.slice(1, -1).map((code) => `<b title="${escapeHtml(state.airportByIata.get(code)?.city || code)}"></b>`).join("")}</span>` : ""}<i class="ph-fill ph-airplane-tilt"></i></span>
           <strong>${escapeHtml(codes.at(-1) || "—")}</strong>
         </div>
         <div class="journey-meta">
@@ -693,7 +694,7 @@ function renderJourneyList() {
       </div>
       <div class="journey-card-side">
         <span class="airline-stack">${airlineLogoStack(journey)}</span>
-        <span class="journey-distance">${formatNumber(metrics.distanceKm)} km</span>
+        <span class="journey-card-numbers"><b>${metrics.totalCost ? escapeHtml(formatCurrency(metrics.totalCost, metrics.currency)) : ""}</b><small>${formatNumber(metrics.distanceKm)} km</small></span>
       </div>`;
     card.addEventListener("click", () => openJourneyDetail(journey.id));
     card.addEventListener("mouseenter", () => {
@@ -761,7 +762,7 @@ function renderMetricsAndIntelligence() {
   byId("intel-hours").textContent = `${formatNumber(stats.airMinutes / 60, 1)}h`;
   byId("intel-connections").textContent = formatNumber(stats.connections);
   byId("intel-carbon").textContent = stats.carbonKg >= 1000 ? `${formatNumber(stats.carbonKg / 1000, 1)} t` : `${formatNumber(stats.carbonKg)} kg`;
-  byId("intel-spend").textContent = formatCurrency(stats.inrSpend, "INR");
+  byId("intel-spend").textContent = formatCurrency(stats.trackedSpend, stats.spendCurrency);
 
   if (!stats.connections) {
     byId("connection-title").textContent = "No connections yet";
@@ -839,8 +840,6 @@ function blankSegment(seed = {}) {
     seat: "",
     departureTerminal: "",
     arrivalTerminal: "",
-    cost: "",
-    currency: state.settings.currency || "INR",
     selfTransfer: false,
     checkedBag: false,
     ...seed,
@@ -876,16 +875,14 @@ function segmentCardHtml(segment, index) {
         <label class="segment-field"><span>To</span><div class="airport-field"><input class="airport-input segment-to" type="text" autocomplete="off" placeholder="City or IATA" value="${escapeHtml(airportLabel(to))}" data-code="${escapeHtml(segment.to)}" /><span class="airport-code-hint">${escapeHtml(segment.to)}</span><div class="airport-results"></div></div></label>
       </div>
       <div class="segment-details-grid">
-        <label class="segment-field"><span>Departure</span><input class="segment-departure" type="datetime-local" value="${escapeHtml(segment.departureAt)}" /></label>
-        <label class="segment-field"><span>Arrival <small>Local</small></span><input class="segment-arrival" type="datetime-local" value="${escapeHtml(segment.arrivalAt)}" /></label>
-        <label class="segment-field wide-field airline-field"><span>Airline</span><div class="airline-select-wrap"><img class="airline-preview ${segment.airlineCode ? "" : "hidden"}" src="${logo}" alt="" onerror="this.classList.add('hidden')" /><select class="segment-airline">${airlineOptions(segment.airlineCode)}</select></div></label>
-        <label class="segment-field"><span>Flight number</span><input class="segment-flight-number" type="text" maxlength="10" value="${escapeHtml(segment.flightNumber)}" placeholder="AI 202" /></label>
-        <label class="segment-field"><span>Cabin</span><select class="segment-cabin"><option value="economy" ${segment.cabin === "economy" ? "selected" : ""}>Economy</option><option value="premium-economy" ${segment.cabin === "premium-economy" ? "selected" : ""}>Premium economy</option><option value="business" ${segment.cabin === "business" ? "selected" : ""}>Business</option><option value="first" ${segment.cabin === "first" ? "selected" : ""}>First</option></select></label>
-        <label class="segment-field"><span>Seat <small>Optional</small></span><input class="segment-seat" type="text" maxlength="5" value="${escapeHtml(segment.seat)}" placeholder="12A" /></label>
-        <label class="segment-field"><span>Depart terminal</span><input class="segment-departure-terminal" type="text" maxlength="8" value="${escapeHtml(segment.departureTerminal)}" placeholder="T3" /></label>
-        <label class="segment-field"><span>Arrive terminal</span><input class="segment-arrival-terminal" type="text" maxlength="8" value="${escapeHtml(segment.arrivalTerminal)}" placeholder="T2" /></label>
-        <label class="segment-field"><span>Fare</span><input class="segment-cost" type="number" min="0" step="0.01" value="${escapeHtml(segment.cost)}" placeholder="0" /></label>
-        <label class="segment-field"><span>Currency</span><select class="segment-currency">${["INR", "USD", "EUR", "GBP", "AED", "SGD", "AUD", "JPY"].map((currency) => `<option ${currency === segment.currency ? "selected" : ""}>${currency}</option>`).join("")}</select></label>
+        <label class="segment-field date-field"><span>Departure</span><input class="segment-departure" type="datetime-local" value="${escapeHtml(segment.departureAt)}" /></label>
+        <label class="segment-field date-field"><span>Arrival <small>Local time</small></span><input class="segment-arrival" type="datetime-local" value="${escapeHtml(segment.arrivalAt)}" /></label>
+        <label class="segment-field airline-field"><span>Airline</span><div class="airline-select-wrap"><img class="airline-preview ${segment.airlineCode ? "" : "hidden"}" src="${logo}" alt="" onerror="this.classList.add('hidden')" /><select class="segment-airline">${airlineOptions(segment.airlineCode)}</select></div></label>
+        <label class="segment-field flight-number-field"><span>Flight number</span><input class="segment-flight-number" type="text" maxlength="10" value="${escapeHtml(segment.flightNumber)}" placeholder="AI 202" /></label>
+        <label class="segment-field cabin-field"><span>Cabin</span><select class="segment-cabin"><option value="economy" ${segment.cabin === "economy" ? "selected" : ""}>Economy</option><option value="premium-economy" ${segment.cabin === "premium-economy" ? "selected" : ""}>Premium economy</option><option value="business" ${segment.cabin === "business" ? "selected" : ""}>Business</option><option value="first" ${segment.cabin === "first" ? "selected" : ""}>First</option></select></label>
+        <label class="segment-field seat-field"><span>Seat <small>Optional</small></span><input class="segment-seat" type="text" maxlength="5" value="${escapeHtml(segment.seat)}" placeholder="12A" /></label>
+        <label class="segment-field terminal-field"><span>Depart terminal</span><input class="segment-departure-terminal" type="text" maxlength="8" value="${escapeHtml(segment.departureTerminal)}" placeholder="T3" /></label>
+        <label class="segment-field terminal-field"><span>Arrive terminal</span><input class="segment-arrival-terminal" type="text" maxlength="8" value="${escapeHtml(segment.arrivalTerminal)}" placeholder="T2" /></label>
       </div>
       <div class="segment-options">
         <label class="mini-check"><input class="segment-self-transfer" type="checkbox" ${segment.selfTransfer ? "checked" : ""} /> Self-transfer / separate ticket</label>
@@ -909,8 +906,6 @@ function syncBuilderSegmentsFromDom() {
       seat: normalizeText($(".segment-seat", card).value).toUpperCase(),
       departureTerminal: normalizeText($(".segment-departure-terminal", card).value).toUpperCase(),
       arrivalTerminal: normalizeText($(".segment-arrival-terminal", card).value).toUpperCase(),
-      cost: $(".segment-cost", card).value,
-      currency: $(".segment-currency", card).value,
       selfTransfer: $(".segment-self-transfer", card).checked,
       checkedBag: $(".segment-checked-bag", card).checked,
     });
@@ -1063,14 +1058,28 @@ function updateBuilderPreview() {
   const segments = state.builderSegments;
   const first = segments[0];
   const last = segments.at(-1);
-  const temporary = { segments };
+  const totalCost = Number(byId("journey-total-price")?.value || 0);
+  const currency = byId("journey-currency")?.value || state.settings.currency || "INR";
+  const temporary = { segments, totalCost, currency };
   const metrics = metricsForJourney(temporary);
   const shift = first && last ? timezoneOffsetHours(first.from, last.to, safeDate(first.departureAt) || new Date()) : null;
   byId("builder-route").innerHTML = `<span>${escapeHtml(first?.from || "FROM")}</span><i class="ph-fill ph-airplane-tilt"></i><span>${escapeHtml(last?.to || "TO")}</span>`;
   byId("builder-distance").textContent = metrics.distanceKm ? `${formatNumber(metrics.distanceKm)} km` : "—";
   byId("builder-connections").textContent = segments.length > 1 ? `${segments.length - 1} connection${segments.length > 2 ? "s" : ""}` : "Direct";
+  byId("builder-price").textContent = totalCost ? formatCurrency(totalCost, currency) : "Not entered";
+  byId("builder-value").textContent = totalCost && metrics.distanceKm ? `${formatCurrency(totalCost / metrics.distanceKm, currency)} / km` : "—";
   byId("builder-timezone").textContent = shift == null || !first?.from || !last?.to ? "—" : `${shift > 0 ? "+" : ""}${formatNumber(shift, 1)}h`;
   byId("builder-carbon").textContent = metrics.carbonKg ? `~${formatNumber(metrics.carbonKg)} kg` : "—";
+  const signal = byId("builder-signal");
+  const completeRoutes = segments.filter((segment) => state.airportByIata.has(segment.from) && state.airportByIata.has(segment.to)).length;
+  const timedFlights = segments.filter((segment) => safeDate(segment.departureAt)).length;
+  const riskyConnections = journeyConnections(temporary).filter((connection) => connection.level === "risk").length;
+  signal.className = `journey-signal ${riskyConnections ? "attention" : completeRoutes === segments.length && timedFlights === segments.length ? "excellent" : ""}`;
+  signal.innerHTML = riskyConnections
+    ? `<span>JOURNEY SIGNAL</span><strong>Connection attention needed</strong><small>${riskyConnections} onward flight${riskyConnections > 1 ? "s have" : " has"} less than the estimated transfer buffer.</small>`
+    : completeRoutes === segments.length && timedFlights === segments.length
+      ? `<span>JOURNEY SIGNAL</span><strong>Flight plan looks coherent</strong><small>${segments.length} flight${segments.length > 1 ? "s" : ""}, ${formatNumber(metrics.distanceKm)} km and no route conflicts detected.</small>`
+      : `<span>JOURNEY SIGNAL</span><strong>Ready to compose</strong><small>Add valid airports and departure times to activate the live quality model.</small>`;
   const shield = byId("builder-shield");
   shield.className = "connection-preview";
   if (segments.length < 2) {
@@ -1093,6 +1102,11 @@ function openJourneyBuilder(journey = null) {
   byId("journey-name").value = journey?.name || "";
   byId("journey-status").value = journey?.status || "flown";
   byId("journey-purpose").value = journey?.purpose || "leisure";
+  const existingMetrics = metricsForJourney(journey || { segments: [] });
+  byId("journey-total-price").value = existingMetrics.totalCost || "";
+  byId("journey-currency").value = journey ? (journey.currency || existingMetrics.currency || "INR") : (state.settings.currency || "INR");
+  byId("journey-booking-reference").value = journey?.bookingReference || "";
+  byId("journey-rating").value = String(journey?.rating || 0);
   byId("journey-notes").value = journey?.notes || "";
   byId("journey-tags").value = (journey?.tags || []).join(", ");
   byId("itinerary-text").value = "";
@@ -1116,6 +1130,10 @@ function addConnectingSegment() {
 
 function validateBuilder(segments) {
   let firstInvalid = null;
+  const totalPriceField = byId("journey-total-price");
+  const totalPriceValid = !totalPriceField.value || Number(totalPriceField.value) >= 0;
+  totalPriceField.classList.toggle("invalid", !totalPriceValid);
+  if (!totalPriceValid) firstInvalid = totalPriceField;
   $$(".segment-card", byId("segment-list")).forEach((card, index) => {
     const segment = segments[index];
     const fields = [
@@ -1138,7 +1156,7 @@ function validateBuilder(segments) {
   });
   if (firstInvalid) {
     firstInvalid.focus();
-    toast("Complete the flight plan", "Choose valid airports and a departure time for every flight.", "error");
+    toast("Complete the flight plan", "Review highlighted fields, valid airports, departure times and the journey total.", "error");
     return false;
   }
   return true;
@@ -1166,19 +1184,21 @@ async function saveJourney(event) {
     seat: segment.seat,
     departureTerminal: segment.departureTerminal,
     arrivalTerminal: segment.arrivalTerminal,
-    cost: segment.cost ? Number(segment.cost) : 0,
-    currency: segment.currency,
     selfTransfer: Boolean(segment.selfTransfer),
     checkedBag: Boolean(segment.checkedBag),
   }));
   const metrics = metricsForJourney({ segments: cleanSegments });
   const payload = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: title,
     status: byId("journey-status").value,
     purpose: byId("journey-purpose").value,
     notes: normalizeText(byId("journey-notes").value),
     tags: byId("journey-tags").value.split(",").map(normalizeText).filter(Boolean).slice(0, 12),
+    totalCost: Number(byId("journey-total-price").value || 0),
+    currency: byId("journey-currency").value,
+    bookingReference: normalizeText(byId("journey-booking-reference").value).toUpperCase(),
+    rating: Number(byId("journey-rating").value || 0),
     segments: cleanSegments,
     departureStart: cleanSegments[0].departureAt,
     arrivalEnd: cleanSegments.at(-1).arrivalAt || "",
@@ -1255,7 +1275,6 @@ function detailTimelineHtml(journey) {
       segment.departureTerminal ? `From ${segment.departureTerminal}` : "",
       segment.arrivalTerminal ? `To ${segment.arrivalTerminal}` : "",
       segment.checkedBag ? "Checked bag" : "",
-      segment.cost ? formatCurrency(segment.cost, segment.currency || "INR") : "",
     ].filter(Boolean);
     const layoverText = connection?.layoverMinutes == null
       ? "Connection time unavailable"
@@ -1309,7 +1328,9 @@ function openJourneyDetail(journeyId) {
     <div><strong>${formatNumber(metrics.distanceKm)} km</strong><span>Distance</span></div>
     <div><strong>${formatNumber(metrics.airMinutes / 60, 1)}h</strong><span>Air time</span></div>
     <div><strong>${metrics.countries.size}</strong><span>Countries</span></div>
-    <div><strong>~${formatNumber(metrics.carbonKg)} kg</strong><span>CO₂ estimate</span></div>`;
+    <div><strong>~${formatNumber(metrics.carbonKg)} kg</strong><span>CO₂ estimate</span></div>
+    ${metrics.totalCost ? `<div><strong>${escapeHtml(formatCurrency(metrics.totalCost, metrics.currency))}</strong><span>Total journey price</span></div>` : ""}
+    ${journey.rating ? `<div><strong>${"★".repeat(journey.rating)}${"☆".repeat(5 - journey.rating)}</strong><span>Experience</span></div>` : ""}`;
   byId("detail-flight-count").textContent = `${journey.segments.length} flight${journey.segments.length > 1 ? "s" : ""}`;
   byId("detail-timeline").innerHTML = detailTimelineHtml(journey);
   byId("detail-notes").textContent = journey.notes || "No note added.";
@@ -1343,10 +1364,20 @@ async function duplicateActiveJourney() {
   if (!requireSecureCloud("duplicate this journey")) return;
   try {
     const { id, createdAt, updatedAt, ...copy } = journey;
+    const journeyMetrics = metricsForJourney(journey);
+    const cleanSegments = (journey.segments || []).map((rawSegment) => {
+      const { cost, currency, ...segment } = rawSegment;
+      return segment;
+    });
     await addDoc(collection(db, "users", state.user.uid, "journeys"), {
       ...copy,
+      schemaVersion: 3,
       name: `${journeyTitle(journey)} — copy`,
       status: "planned",
+      segments: cleanSegments,
+      totalCost: journeyMetrics.totalCost,
+      currency: journeyMetrics.currency,
+      bookingReference: "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -1580,7 +1611,7 @@ function exportJourneyData() {
   if (!requireUser("export your data")) return;
   const payload = {
     format: "flight-log",
-    schemaVersion: 2,
+    schemaVersion: 3,
     exportedAt: new Date().toISOString(),
     account: { email: state.user.email || "", displayName: state.settings.displayName || "" },
     settings: state.settings,
@@ -1600,12 +1631,16 @@ function legacyFlightToJourney(flight) {
   const departureAt = flight.date ? `${flight.date}T${flight.time || "00:00"}` : "";
   const matchedAirline = AIRLINES.find((airline) => airline.name.toLowerCase() === String(flight.airline || "").toLowerCase());
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: "",
     status: "flown",
     purpose: "other",
     notes: "",
     tags: [],
+    totalCost: Number(flight.cost || 0),
+    currency: "INR",
+    bookingReference: "",
+    rating: 0,
     departureStart: departureAt,
     arrivalEnd: "",
     segments: [blankSegment({
@@ -1615,28 +1650,34 @@ function legacyFlightToJourney(flight) {
       airlineCode: matchedAirline?.code || "",
       airlineName: flight.airline || matchedAirline?.name || "",
       flightNumber: flight.flightNum || "",
-      cost: Number(flight.cost || 0),
-      currency: "INR",
     })],
   };
 }
 
 function sanitizeImportedJourney(raw) {
-  const segments = Array.isArray(raw.segments) ? raw.segments.map((segment) => blankSegment({
-    ...segment,
-    from: String(segment.from || "").toUpperCase(),
-    to: String(segment.to || "").toUpperCase(),
-    cost: Number(segment.cost || 0),
-  })) : [];
+  const legacyTotal = Array.isArray(raw.segments) ? raw.segments.reduce((sum, segment) => sum + Number(segment.cost || 0), 0) : 0;
+  const legacyCurrency = Array.isArray(raw.segments) ? raw.segments.find((segment) => segment.currency)?.currency : "";
+  const segments = Array.isArray(raw.segments) ? raw.segments.map((rawSegment) => {
+    const { cost, currency, ...segment } = rawSegment;
+    return blankSegment({
+      ...segment,
+      from: String(segment.from || "").toUpperCase(),
+      to: String(segment.to || "").toUpperCase(),
+    });
+  }) : [];
   if (!segments.length || segments.some((segment) => !state.airportByIata.has(segment.from) || !state.airportByIata.has(segment.to) || !safeDate(segment.departureAt))) return null;
   const metrics = metricsForJourney({ segments });
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: normalizeText(raw.name || ""),
     status: raw.status === "planned" ? "planned" : "flown",
     purpose: ["leisure", "business", "family", "education", "other"].includes(raw.purpose) ? raw.purpose : "other",
     notes: normalizeText(raw.notes || "").slice(0, 1000),
     tags: Array.isArray(raw.tags) ? raw.tags.map(normalizeText).filter(Boolean).slice(0, 12) : [],
+    totalCost: Math.max(0, Number(raw.totalCost ?? legacyTotal) || 0),
+    currency: raw.currency || legacyCurrency || state.settings.currency || "INR",
+    bookingReference: normalizeText(raw.bookingReference || "").toUpperCase().slice(0, 16),
+    rating: Math.max(0, Math.min(5, Number(raw.rating || 0))),
     segments,
     departureStart: segments[0].departureAt,
     arrivalEnd: segments.at(-1).arrivalAt || "",
@@ -1738,6 +1779,8 @@ function attachEvents() {
   byId("journey-form").addEventListener("submit", saveJourney);
   byId("add-segment").addEventListener("click", addConnectingSegment);
   byId("parse-itinerary").addEventListener("click", parseItineraryText);
+  byId("journey-total-price").addEventListener("input", updateBuilderPreview);
+  byId("journey-currency").addEventListener("change", updateBuilderPreview);
 
   byId("journey-search").addEventListener("input", applyFilters);
   byId("year-filter").addEventListener("change", applyFilters);

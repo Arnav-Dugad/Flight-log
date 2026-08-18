@@ -10,6 +10,7 @@ Flight Log is a private, Firebase-backed aviation atlas for single flights and m
 - Email/password and Google authentication through Firebase Auth
 - Per-user realtime Firestore storage at `users/{uid}/journeys/{journeyId}`
 - Connection Shield minimum-buffer analysis and a delay What-if Lab
+- One journey-level total price for direct and connected itineraries
 - Timezone, distance, carbon, India network and spend intelligence
 - Magic itinerary text parser
 - Cloud JSON import/export and complete journey deletion
@@ -63,6 +64,6 @@ node scripts/prepare-airports.mjs .airports-source/airports.json data/airports.j
 
 ## Data model
 
-Each journey stores its metadata plus a `segments` array. A segment can record origin, destination, local departure/arrival time, airline, flight number, cabin, seat, terminals, fare, currency, checked baggage and self-transfer status. Derived distance and carbon estimates are cached for fast dashboards but recalculated by the client when editing.
+Each journey stores its metadata, one total itinerary price/currency, optional booking reference and experience rating, plus a `segments` array. A segment records origin, destination, local departure/arrival time, airline, flight number, cabin, seat, terminals, checked baggage and self-transfer status. Derived distance and carbon estimates are cached for fast dashboards but recalculated by the client when editing.
 
 Connection and carbon results are estimates for personal reflection, not airline, airport, visa, safety or operational advice.

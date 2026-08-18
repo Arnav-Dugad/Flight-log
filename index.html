@@ -244,6 +244,29 @@
               </label>
             </section>
 
+            <section class="journey-commercials" aria-label="Journey fare and experience">
+              <div class="commercials-heading">
+                <span class="commercials-icon"><i class="ph-duotone ph-receipt"></i></span>
+                <div><strong>One journey, one total</strong><small>For connections, enter the complete itinerary price once.</small></div>
+              </div>
+              <label>
+                <span>Total price <small>All flights</small></span>
+                <input id="journey-total-price" type="number" min="0" step="0.01" placeholder="0" inputmode="decimal" />
+              </label>
+              <label>
+                <span>Currency</span>
+                <select id="journey-currency"><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option><option>SGD</option><option>AUD</option><option>JPY</option></select>
+              </label>
+              <label>
+                <span>Booking reference <small>Optional</small></span>
+                <input id="journey-booking-reference" type="text" maxlength="16" placeholder="PNR / reference" autocomplete="off" />
+              </label>
+              <label>
+                <span>Experience</span>
+                <select id="journey-rating"><option value="0">Not rated</option><option value="5">Exceptional · 5/5</option><option value="4">Excellent · 4/5</option><option value="3">Good · 3/5</option><option value="2">Fair · 2/5</option><option value="1">Poor · 1/5</option></select>
+              </label>
+            </section>
+
             <details class="magic-import">
               <summary><span><i class="ph-duotone ph-sparkle"></i><b>Magic itinerary parser</b></span><small>Paste text → build legs</small></summary>
               <div>
@@ -278,8 +301,11 @@
             <div class="mini-route" id="builder-route"><span>FROM</span><i class="ph-fill ph-airplane-tilt"></i><span>TO</span></div>
             <div class="preview-stat"><span>Distance</span><strong id="builder-distance">—</strong></div>
             <div class="preview-stat"><span>Connections</span><strong id="builder-connections">Direct</strong></div>
+            <div class="preview-stat"><span>Total price</span><strong id="builder-price">Not entered</strong></div>
+            <div class="preview-stat"><span>Value index</span><strong id="builder-value">—</strong></div>
             <div class="preview-stat"><span>Clock shift</span><strong id="builder-timezone">—</strong></div>
             <div class="preview-stat"><span>CO₂ estimate</span><strong id="builder-carbon">—</strong></div>
+            <div class="journey-signal" id="builder-signal"><span>JOURNEY SIGNAL</span><strong>Ready to compose</strong><small>Add route details to activate the live quality model.</small></div>
             <div class="connection-preview" id="builder-shield">
               <i class="ph-duotone ph-shield-chevron"></i><div><span>Connection Shield</span><strong>Add another flight to activate</strong></div>
             </div>

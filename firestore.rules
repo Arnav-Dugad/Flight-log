@@ -7,7 +7,7 @@ service cloud.firestore {
     }
 
     function validJourney() {
-      return request.resource.data.schemaVersion == 2
+      return request.resource.data.schemaVersion in [2, 3]
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 80
         && request.resource.data.status in ['flown', 'planned']
@@ -19,7 +19,17 @@ service cloud.firestore {
         && request.resource.data.segments is list
         && request.resource.data.segments.size() >= 1
         && request.resource.data.segments.size() <= 20
-        && request.resource.data.departureStart is string;
+        && request.resource.data.departureStart is string
+        && (request.resource.data.schemaVersion == 2
+          || (request.resource.data.totalCost is number
+            && request.resource.data.totalCost >= 0
+            && request.resource.data.currency is string
+            && request.resource.data.currency.size() == 3
+            && request.resource.data.bookingReference is string
+            && request.resource.data.bookingReference.size() <= 16
+            && request.resource.data.rating is number
+            && request.resource.data.rating >= 0
+            && request.resource.data.rating <= 5));
     }
 
     match /users/{userId} {
