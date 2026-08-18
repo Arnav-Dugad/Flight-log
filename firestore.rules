@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function validJourney() {
+      return request.resource.data.schemaVersion == 2
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.status in ['flown', 'planned']
+        && request.resource.data.purpose in ['leisure', 'business', 'family', 'education', 'other']
+        && request.resource.data.notes is string
+        && request.resource.data.notes.size() <= 1000
+        && request.resource.data.tags is list
+        && request.resource.data.tags.size() <= 12
+        && request.resource.data.segments is list
+        && request.resource.data.segments.size() >= 1
+        && request.resource.data.segments.size() <= 20
+        && request.resource.data.departureStart is string;
+    }
+
+    match /users/{userId} {
+      allow read, create, update, delete: if isOwner(userId);
+
+      match /journeys/{journeyId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validJourney();
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

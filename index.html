@@ -1,2113 +1,395 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Arnav - My Flight Log - Interactive Globe</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet"> 
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06101d" />
+    <meta
+      name="description"
+      content="Flight Log — a private, cloud-synced atlas for flights, connections, memories and travel intelligence."
+    />
+    <title>Flight Log — Your sky, remembered</title>
+    <meta property="og:title" content="Flight Log — Your sky, remembered" />
+    <meta property="og:description" content="A private, cloud-synced atlas for flights, connections and travel intelligence." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="assets/flight-log-mark.svg" type="image/svg+xml" />
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    <script src="https://unpkg.com/globe.gl@2.30.0/dist/globe.gl.min.js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://pics.avs.io" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.33.2/dist/globe.gl.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+  </head>
 
-<style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Outfit', sans-serif;
-            background-color: #000;
-            overflow: hidden;
-            -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
-        }
-
-        /* Glassmorphism Utilities */
-        .glass {
-            background: rgba(20, 20, 20, 0.65);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .glass-panel {
-            background: rgba(10, 10, 14, 0.9); /* Slightly darker for better contrast on mobile */
-            backdrop-filter: blur(20px);
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        /* Form Elements */
-        select, 
-        input[type="date"], 
-        input[type="time"],
-        input[type="text"], 
-        input[type="number"], 
-        input[type="range"], 
-        input[type="search"],
-        input[type="email"],
-        input[type="password"],
-        input:not([type]) { 
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            padding: 8px;
-            border-radius: 6px;
-            width: 100%;
-            outline: none;
-            font-family: inherit;
-        }
-        select:focus, input:focus {
-            border-color: #3b82f6;
-            background: rgba(255, 255, 255, 0.1);
-        }
-        select option {
-            background: #1a1a1a;
-            color: white;
-        }
-        
-        /* Remove arrows from number input */
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; 
-            margin: 0; 
-        }
-
-        /* Mobile specific fixes */
-        @media (max-width: 768px) {
-            /* Prevent iOS zoom on inputs */
-            input, select, textarea {
-                font-size: 16px !important;
-            }
-            .glass-panel {
-                border-right: none;
-                border-bottom: none; /* Removed bottom border for full drawer feel */
-            }
-            /* Safe Area Support */
-            .safe-pt {
-                padding-top: env(safe-area-inset-top, 20px);
-            }
-            .safe-pb {
-                padding-bottom: env(safe-area-inset-bottom, 20px);
-            }
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.02);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.25);
-        }
-
-        /* Custom flight card hover */
-        .flight-card {
-            transition: all 0.2s ease;
-        }
-        .flight-card:hover {
-            background: rgba(255, 255, 255, 0.05);
-            transform: translateX(4px);
-        }
-        .flight-card.active-card {
-            background: rgba(59, 130, 246, 0.15);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-
-        #globeViz {
-            width: 100vw;
-            height: 100vh;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-
-        #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-            pointer-events: none; 
-            transition: opacity 1s ease;
-        }
-
-        /* Screensaver Mode */
-        body.screensaver #ui-layer {
-            opacity: 0;
-            pointer-events: none;
-        }
-        body.screensaver #globeViz {
-            cursor: none;
-        }
-
-        .interactive {
-            pointer-events: auto;
-        }
-
-        .fade-in {
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .delete-btn {
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        .flight-card:hover .delete-btn {
-            opacity: 1;
-        }
-        /* Always show delete on mobile for easier access */
-        @media (max-width: 768px) {
-            .delete-btn { opacity: 1; }
-        }
-
-        /* Sidebar Transition */
-        #sidebar {
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        #sidebar.collapsed {
-            transform: translateX(-100%);
-        }
-
-        /* Modal Transitions */
-        .modal {
-            transition: opacity 0.3s ease, visibility 0.3s;
-        }
-        .modal.hidden-modal {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-
-        /* Airline Dropdown Styles */
-        .airline-option {
-            transition: background 0.2s;
-        }
-        .airline-option:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Passport Styles */
-        .passport-card {
-            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            font-family: 'Courier Prime', monospace;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        /* Fixed Stamp Styles */
-        .stamp {
-            font-family: 'Permanent Marker', cursive;
-            border: 3px double currentColor;
-            opacity: 0.9;
-            text-shadow: 0 0 2px rgba(0,0,0,0.5);
-        }
-        
-        /* Barrel Roll Animation */
-        @keyframes barrelRoll {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .barrel-rolling {
-            animation: barrelRoll 1s ease-in-out;
-        }
-    </style>
-</head>
-<body class="text-white">
-
-    <div id="globeViz"></div>
-
-    <div id="ui-layer" class="flex flex-col md:flex-row">
-        
-        <div class="absolute top-4 left-4 md:top-6 md:left-6 interactive z-50 safe-pt">
-             <button onclick="toggleSidebar()" id="expand-btn" class="hidden p-3 rounded-full glass hover:bg-white/10 text-white transition-colors shadow-xl active:scale-95 cursor-pointer">
-                <i class="ph-bold ph-list text-lg"></i>
-            </button>
-        </div>
-
-        <div class="interactive glass-panel fixed md:relative top-0 left-0 h-full w-[85vw] md:w-96 flex flex-col shadow-2xl z-40 transition-transform duration-300 transform md:translate-x-0" id="sidebar">
-            <div class="p-3 md:p-4 border-b border-white/10 flex justify-between items-center bg-black/20 safe-pt">
-                <div>
-                    <h1 class="text-lg md:text-xl font-semibold tracking-tight text-blue-100 flex items-center gap-2">
-                        <i id="plane-icon" class="ph-fill ph-airplane-tilt text-blue-500 cursor-pointer hover:text-blue-400 hover:rotate-45 transition-all duration-300" onclick="triggerBarrelRoll()" title="Do a barrel roll!"></i>
-                        Travel Log
-                    </h1>
-                </div>
-                <div class="flex items-center gap-1">
-                    <button onclick="toggleAuthModal()" id="auth-btn" class="p-2 rounded-full hover:bg-white/10 transition-colors text-white cursor-pointer relative" title="Login / Signup">
-                        <i class="ph-bold ph-user-circle text-lg"></i>
-                        <div id="auth-status-dot" class="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 border border-black"></div>
-                    </button>
-                    <button onclick="toggleStats()" class="p-2 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white cursor-pointer" title="Advanced Statistics">
-                        <i class="ph-bold ph-chart-bar text-lg"></i>
-                    </button>
-                    <button onclick="openPassport()" class="p-2 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white cursor-pointer" title="Aviation Passport">
-                        <i class="ph-bold ph-identification-card text-lg"></i>
-                    </button>
-                    <button onclick="toggleSettings()" class="p-2 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white cursor-pointer" title="Settings">
-                        <i class="ph-bold ph-gear text-lg"></i>
-                    </button>
-                    <button onclick="toggleSidebar()" class="p-2 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white cursor-pointer" title="Collapse Sidebar">
-                        <i class="ph-bold ph-caret-double-left text-lg"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-3 gap-2 p-2 md:p-3 border-b border-white/10 bg-white/5 shrink-0">
-                <div class="text-center">
-                    <div class="text-[10px] text-gray-400 uppercase tracking-wider">Flights</div>
-                    <div class="text-base md:text-lg font-bold text-white" id="total-flights">0</div>
-                </div>
-                <div class="text-center border-l border-white/10 cursor-pointer hover:bg-white/5 transition-colors rounded" onclick="triggerMoonEasterEgg()" title="Click 5 times for a surprise!">
-                    <div class="text-[10px] text-gray-400 uppercase tracking-wider">Distance</div>
-                    <div class="text-base md:text-lg font-bold text-blue-400"><span id="total-km">0</span>k</div>
-                </div>
-                <div class="text-center border-l border-white/10">
-                    <div class="text-[10px] text-gray-400 uppercase tracking-wider">Countries</div>
-                    <div class="text-base md:text-lg font-bold text-emerald-400" id="total-countries">0</div>
-                </div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto min-h-0 flex flex-col">
-                <div class="p-2 md:p-3 border-b border-white/10 bg-black/10 shrink-0">
-                    <div class="space-y-2"> <div class="flex items-end gap-2">
-                            <div class="flex-1 min-w-0">
-                                <label class="text-[10px] text-gray-500 block mb-1">From</label>
-                                <input list="airport-list" type="text" id="input-from" class="text-sm w-full uppercase py-1.5" placeholder="Origin">
-                            </div>
-                            <button onclick="swapAirports()" class="p-2 mb-1 rounded hover:bg-white/10 text-gray-400 hover:text-blue-400 transition-colors cursor-pointer" title="Swap">
-                                <i class="ph-bold ph-arrows-left-right text-lg"></i>
-                            </button>
-                            <div class="flex-1 min-w-0">
-                                <label class="text-[10px] text-gray-500 block mb-1">To</label>
-                                <input list="airport-list" type="text" id="input-to" class="text-sm w-full uppercase py-1.5" placeholder="Dest">
-                            </div>
-                        </div>
-                        
-                        <datalist id="airport-list">
-                            </datalist>
-
-                        <div class="flex gap-2">
-                             <div class="w-1/2">
-                                <label class="text-[10px] text-gray-500 block mb-1">Date</label>
-                                <input type="date" id="input-date" class="text-sm py-1.5">
-                             </div>
-                             <div class="w-1/2">
-                                <label class="text-[10px] text-gray-500 block mb-1">Time</label>
-                                <input type="time" id="input-time" class="text-sm py-1.5">
-                             </div>
-                        </div>
-                        
-                        <div class="flex gap-2">
-                            <div class="w-1/2">
-                               <label class="text-[10px] text-gray-500 block mb-1">Flight #</label>
-                               <input type="text" id="input-flight-num" class="text-sm py-1.5" placeholder="e.g. EK501">
-                            </div>
-                            <div class="w-1/2">
-                               <label class="text-[10px] text-gray-500 block mb-1">Cost (INR)</label>
-                               <input type="number" id="input-cost" class="text-sm py-1.5" placeholder="₹">
-                            </div>
-                        </div>
-                        
-                        <div class="relative">
-                            <label class="text-[10px] text-gray-500 block mb-1">Airline</label>
-                            <button onclick="toggleAirlineDropdown()" id="airline-btn" class="w-full text-left bg-white/5 border border-white/10 rounded-md py-1.5 px-3 text-sm flex items-center justify-between hover:bg-white/10 transition-colors cursor-pointer">
-                                <span id="airline-btn-text" class="text-gray-400">Select Airline</span>
-                                <i class="ph-bold ph-caret-down text-gray-500"></i>
-                            </button>
-                            
-                            <div id="airline-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-md shadow-xl z-50 max-h-48 overflow-y-auto">
-                                </div>
-                            
-                            <input type="hidden" id="input-airline">
-                        </div>
-
-                        <button onclick="window.addCustomFlight()" class="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-sm font-medium transition-colors shadow-lg shadow-blue-900/20 mt-1 active:scale-[0.98] cursor-pointer">
-                            Add Flight
-                        </button>
-                    </div>
-                </div>
-
-                <div class="px-3 md:px-4 py-2 border-b border-white/10 bg-black/10 flex gap-2 items-center shrink-0">
-                    <select id="year-filter" onchange="filterFlights()" class="text-xs bg-white/5 border-none w-auto max-w-[120px] py-1.5 cursor-pointer">
-                        <option value="all">All Years</option>
-                        </select>
-                    <div class="flex-1"></div>
-                    <div class="text-[10px] md:text-xs text-gray-500 flex items-center" id="filtered-count"></div>
-                </div>
-
-                <div class="flex-1 overflow-y-auto p-2 md:p-4 space-y-1 md:space-y-1.5 pb-20 md:pb-4 safe-pb" id="flight-list">
-                    </div>
-                
-                <div class="p-2 border-t border-white/10 text-center bg-black/20 shrink-0 safe-pb">
-                    <button onclick="window.clearAllFlights()" class="text-xs text-red-400 hover:text-red-300 transition-colors p-2 w-full cursor-pointer">
-                        Clear All History
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="flex-1 relative pointer-events-none">
-            
-            <div id="auth-modal" class="modal hidden-modal absolute inset-0 flex items-center justify-center z-[70] pointer-events-auto bg-black/80 backdrop-blur-sm p-4">
-                <div class="glass p-6 rounded-2xl w-full max-w-sm shadow-2xl transform transition-transform scale-100">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-lg font-semibold flex items-center gap-2" id="auth-title">
-                            <i class="ph-fill ph-sign-in"></i> Sign In
-                        </h2>
-                        <button onclick="toggleAuthModal()" class="text-gray-400 hover:text-white p-2 cursor-pointer">
-                            <i class="ph-bold ph-x text-lg"></i>
-                        </button>
-                    </div>
-                    
-                    <div id="auth-forms">
-                        <div class="space-y-4">
-                            <input type="email" id="auth-email" placeholder="Email Address">
-                            <input type="password" id="auth-password" placeholder="Password">
-                            <div class="text-red-400 text-xs hidden" id="auth-error"></div>
-                            
-                            <button onclick="window.handleAuthAction()" id="auth-action-btn" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-900/20 active:scale-[0.98] cursor-pointer">
-                                Sign In
-                            </button>
-                        </div>
-                        
-                        <div class="mt-4 text-center text-xs text-gray-400">
-                            <span id="auth-toggle-text">Don't have an account?</span>
-                            <button onclick="toggleAuthMode()" class="text-blue-400 hover:text-blue-300 ml-1 font-medium cursor-pointer" id="auth-toggle-btn">Sign Up</button>
-                        </div>
-                    </div>
-
-                    <div id="user-info" class="hidden text-center space-y-4">
-                        <div class="w-16 h-16 bg-blue-600 rounded-full mx-auto flex items-center justify-center text-2xl font-bold text-white shadow-lg">
-                            <i class="ph-fill ph-user"></i>
-                        </div>
-                        <div>
-                            <div class="text-white font-medium" id="user-email-display">user@example.com</div>
-                            <div class="text-xs text-gray-400">Syncing to Cloud</div>
-                        </div>
-                        <button onclick="window.handleLogout()" class="w-full py-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-600/50 rounded-lg text-xs font-medium transition-colors cursor-pointer">
-                            Sign Out
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div id="settings-modal" class="modal hidden-modal absolute inset-0 flex items-center justify-center z-[60] pointer-events-auto bg-black/60 backdrop-blur-sm p-4">
-                <div class="glass p-6 rounded-2xl w-full max-w-sm shadow-2xl transform transition-transform scale-100 max-h-[90vh] overflow-y-auto">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-lg font-semibold flex items-center gap-2">
-                            <i class="ph-fill ph-gear"></i> Settings
-                        </h2>
-                        <button onclick="toggleSettings()" class="text-gray-400 hover:text-white p-2 cursor-pointer">
-                            <i class="ph-bold ph-x text-lg"></i>
-                        </button>
-                    </div>
-
-                    <div class="space-y-5">
-                        <div>
-                            <label class="text-xs text-gray-400 uppercase tracking-wider block mb-2">Map Theme</label>
-                            <div class="flex gap-2 p-1 bg-white/5 rounded-lg">
-                                <button onclick="setMapStyle('dark')" class="flex-1 py-2 text-xs rounded-md bg-blue-600 text-white transition-all cursor-pointer" id="btn-theme-dark">Dark</button>
-                                <button onclick="setMapStyle('light')" class="flex-1 py-2 text-xs rounded-md hover:bg-white/10 text-gray-400 transition-all cursor-pointer" id="btn-theme-light">Light</button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="text-xs text-gray-400 uppercase tracking-wider block mb-2">Options</label>
-                            <div class="space-y-2">
-                                <label class="flex items-center justify-between p-3 rounded bg-white/5 hover:bg-white/10 cursor-pointer">
-                                    <span class="text-sm">Show Airports</span>
-                                    <input type="checkbox" checked onchange="toggleAirports(this)" class="accent-blue-500 w-4 h-4 cursor-pointer">
-                                </label>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="text-xs text-gray-400 uppercase tracking-wider block mb-2">Controls</label>
-                            <button onclick="toggleGyro()" id="gyro-btn" class="w-full py-2 px-3 bg-white/5 hover:bg-white/10 rounded flex items-center justify-between text-sm transition-colors border border-white/5 cursor-pointer">
-                                <span class="flex items-center gap-2"><i class="ph-bold ph-device-rotate"></i> Enable Motion</span>
-                                <span class="text-[10px] text-gray-500 uppercase" id="gyro-status">OFF</span>
-                            </button>
-                        </div>
-
-                        <div>
-                            <label class="text-xs text-gray-400 uppercase tracking-wider block mb-2">Auto-Rotation Speed</label>
-                            <input type="range" min="0" max="20" value="6" class="w-full accent-blue-500 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" oninput="updateRotationSpeed(this.value)">
-                        </div>
-
-                        <div class="pt-4 border-t border-white/10">
-                            <label class="text-xs text-gray-400 uppercase tracking-wider block mb-2">Data Management</label>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button onclick="exportData()" class="py-3 px-3 bg-white/5 hover:bg-white/10 rounded flex items-center justify-center gap-2 text-xs transition-colors cursor-pointer">
-                                    <i class="ph-bold ph-download-simple"></i> Export
-                                </button>
-                                <label class="py-3 px-3 bg-white/5 hover:bg-white/10 rounded flex items-center justify-center gap-2 text-xs transition-colors cursor-pointer">
-                                    <i class="ph-bold ph-upload-simple"></i> Import
-                                    <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(this)">
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="passport-modal" class="modal hidden-modal absolute inset-0 flex items-center justify-center z-[60] pointer-events-auto bg-black/80 backdrop-blur-md p-4">
-                <div class="flex flex-col items-center gap-4 w-full max-w-[360px]">
-                    <div id="passport-capture-area" class="passport-card w-full rounded-2xl overflow-hidden relative flex flex-col text-white p-6 shadow-2xl scale-95 md:scale-100 transform origin-center">
-                        <div class="flex justify-between items-start mb-6 z-10">
-                            <div class="flex items-center gap-2">
-                                <i class="ph-fill ph-globe-hemisphere-west text-3xl text-blue-400"></i>
-                                <div>
-                                    <div class="text-[10px] uppercase tracking-[0.2em] text-blue-200">Official Document</div>
-                                    <div class="text-lg font-bold">AVIATION PASSPORT</div>
-                                </div>
-                            </div>
-                            <div class="w-12 h-12 border border-white/20 rounded bg-white/5 flex items-center justify-center">
-                                <i class="ph-fill ph-airplane-tilt text-2xl text-white/50"></i>
-                            </div>
-                        </div>
-
-                        <div class="flex-1 z-10 space-y-4 mb-4">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <div class="text-[9px] text-gray-400 uppercase mb-1 flex items-center gap-1"><i class="ph-bold ph-path"></i> Total Distance</div>
-                                    <div class="text-xl font-bold text-blue-300" id="pass-dist">--</div>
-                                </div>
-                                <div>
-                                    <div class="text-[9px] text-gray-400 uppercase mb-1 flex items-center gap-1"><i class="ph-bold ph-airplane-takeoff"></i> Flights</div>
-                                    <div class="text-xl font-bold text-white" id="pass-flights">--</div>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="text-[9px] text-gray-400 uppercase mb-1 flex items-center gap-1"><i class="ph-bold ph-star"></i> Favorite Airline</div>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <img id="pass-airline-logo" class="w-6 h-6 object-contain hidden">
-                                    <div class="text-lg font-bold text-yellow-400" id="pass-airline">--</div>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <div class="text-[9px] text-gray-400 uppercase mb-1 flex items-center gap-1"><i class="ph-bold ph-flag-banner"></i> Countries</div>
-                                    <div class="text-lg font-bold text-emerald-400" id="pass-countries">--</div>
-                                </div>
-                                <div>
-                                    <div class="text-[9px] text-gray-400 uppercase mb-1 flex items-center gap-1"><i class="ph-bold ph-wallet"></i> Total Value</div>
-                                    <div class="text-sm font-bold text-white tracking-wide" id="pass-total-cost">--</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="pt-4 border-t border-white/10 z-10">
-                            <div class="text-[9px] text-gray-400 uppercase mb-2">Entry Stamps</div>
-                            <div class="grid grid-cols-4 gap-2" id="pass-stamps">
-                                </div>
-                        </div>
-
-                        <div class="mt-6 pt-2 border-t border-white/10 flex justify-between items-end z-10">
-                            <div class="font-mono text-[9px] text-gray-500">
-                                ID: <span id="pass-id">FL-8392-X</span>
-                            </div>
-                            <img id="passport-qr-img" alt="Passport QR" title="Click to expand" onclick="openQrViewer()" class="w-28 h-28 bg-white rounded shadow-md shadow-black/30 transition-opacity duration-300 cursor-pointer" />
-                        </div>
-                    </div>
-
-                    <div class="flex gap-3 w-full justify-center">
-                        <button onclick="downloadPassport()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-full font-medium shadow-lg transition-colors flex items-center gap-2 text-sm cursor-pointer">
-                            <i class="ph-bold ph-download-simple"></i> Save
-                        </button>
-                        <button onclick="closePassport()" class="px-4 py-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-sm cursor-pointer">
-                            Close
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div id="qr-viewer-modal" class="modal hidden-modal absolute inset-0 flex items-center justify-center z-[65] pointer-events-auto bg-black/80 backdrop-blur-md p-4">
-                <div class="glass p-5 rounded-2xl w-full max-w-sm shadow-2xl">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="text-sm font-semibold flex items-center gap-2">
-                            <i class="ph-fill ph-qr-code"></i> Passport QR
-                        </div>
-                        <button onclick="closeQrViewer()" class="text-gray-400 hover:text-white p-2 cursor-pointer">
-                            <i class="ph-bold ph-x text-lg"></i>
-                        </button>
-                    </div>
-
-                    <div class="flex flex-col items-center gap-3">
-                        <img id="qr-viewer-img" alt="Expanded QR" class="w-full max-w-[250px] aspect-square bg-white rounded-lg shadow-md" />
-                        <div class="w-full">
-                            <div class="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Encoded payload</div>
-                            <pre id="qr-viewer-text" class="text-[10px] leading-snug whitespace-pre-wrap break-words bg-black/30 border border-white/10 rounded-lg p-3 max-h-28 overflow-auto"></pre>
-                            <div class="flex gap-2 mt-2">
-                                <button onclick="copyQrPayload()" class="flex-1 py-3 px-3 bg-white/10 hover:bg-white/20 rounded-lg text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer">
-                                    <i class="ph-bold ph-copy"></i> Copy
-                                </button>
-                                <button onclick="downloadQrPng()" class="flex-1 py-3 px-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer">
-                                    <i class="ph-bold ph-download-simple"></i> Save
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-            <div id="stats-modal" class="modal hidden-modal absolute inset-0 flex items-center justify-center z-[60] pointer-events-auto bg-black/60 backdrop-blur-sm p-4">
-                <div class="glass p-5 md:p-6 rounded-2xl w-full max-w-2xl shadow-2xl transform transition-transform scale-100 max-h-[90vh] overflow-y-auto">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-lg font-semibold flex items-center gap-2">
-                            <i class="ph-fill ph-chart-bar"></i> Global Statistics
-                        </h2>
-                        <button onclick="toggleStats()" class="text-gray-400 hover:text-white p-2 cursor-pointer">
-                            <i class="ph-bold ph-x text-lg"></i>
-                        </button>
-                    </div>
-
-                    <div class="space-y-6">
-                         <div class="grid grid-cols-3 gap-2 md:gap-3">
-                             <div class="p-3 bg-white/5 rounded-lg flex flex-col justify-center text-center md:text-left">
-                                 <div class="text-[9px] md:text-[10px] text-gray-400 uppercase truncate flex flex-col md:flex-row items-center gap-1 justify-center md:justify-start">
-                                    <i class="ph-fill ph-tree text-emerald-400"></i> <span>Carbon</span>
-                                </div>
-                                 <div class="text-xs md:text-sm font-bold text-red-400 mt-1 truncate" id="stat-co2">--</div>
-                                 <div class="text-[8px] md:text-[9px] text-emerald-400 mt-0.5" id="stat-trees">-- trees</div>
-                             </div>
-                             <div class="p-3 bg-white/5 rounded-lg flex flex-col justify-center text-center md:text-left">
-                                 <div class="text-[9px] md:text-[10px] text-gray-400 uppercase truncate flex flex-col md:flex-row items-center gap-1 justify-center md:justify-start">
-                                    <i class="ph-bold ph-currency-inr text-yellow-400"></i> <span>Spent</span>
-                                </div>
-                                 <div class="text-xs md:text-sm font-bold text-white mt-1 truncate" id="stat-total-spent">₹0</div>
-                                 <div class="text-[8px] md:text-[9px] text-gray-400 mt-0.5" id="stat-cost-km">₹0 / km</div>
-                             </div>
-                             <div class="p-3 bg-white/5 rounded-lg flex flex-col justify-center text-center md:text-left">
-                                 <div class="text-[9px] md:text-[10px] text-gray-400 uppercase truncate flex flex-col md:flex-row items-center gap-1 justify-center md:justify-start">
-                                    <i class="ph-bold ph-smiley"></i> <span>Vibe</span>
-                                </div>
-                                 <div class="text-xs md:text-sm font-bold text-blue-300 mt-1 truncate" id="stat-personality">--</div>
-                             </div>
-                         </div>
-
-                         <div class="grid grid-cols-2 gap-3">
-                             <div class="p-3 bg-white/5 rounded-lg flex flex-col justify-center">
-                                 <div class="text-[10px] text-gray-400 uppercase truncate flex items-center gap-1"><i class="ph-bold ph-warning"></i> Brutal Hop</div>
-                                 <div class="text-sm font-bold text-orange-400 mt-1 truncate" id="stat-brutal-hop">--</div>
-                                 <div class="text-[9px] text-gray-500 truncate" id="stat-brutal-hop-val"></div>
-                             </div>
-                             <div class="p-3 bg-white/5 rounded-lg flex flex-col justify-center">
-                                 <div class="text-[10px] text-gray-400 uppercase truncate flex items-center gap-1"><i class="ph-bold ph-hourglass"></i> Tight Connect</div>
-                                 <div class="text-sm font-bold text-purple-300 mt-1 truncate" id="stat-tight-conn">--</div>
-                                 <div class="text-[9px] text-gray-500 truncate" id="stat-tight-conn-val"></div>
-                             </div>
-                         </div>
-
-                         <div class="grid grid-cols-2 gap-3">
-                            <div class="p-3 bg-white/5 rounded-lg">
-                                <div class="text-[10px] text-gray-400 uppercase flex items-center gap-1"><i class="ph-bold ph-arrows-out-line-horizontal"></i> Longest</div>
-                                <div class="text-sm font-bold text-blue-400 mt-1 truncate" id="stat-longest">--</div>
-                                <div class="text-[10px] text-gray-500 truncate" id="stat-longest-dist"></div>
-                            </div>
-                            <div class="p-3 bg-white/5 rounded-lg">
-                                <div class="text-[10px] text-gray-400 uppercase flex items-center gap-1"><i class="ph-bold ph-arrows-in-line-horizontal"></i> Shortest</div>
-                                <div class="text-sm font-bold text-emerald-400 mt-1 truncate" id="stat-shortest">--</div>
-                                <div class="text-[10px] text-gray-500 truncate" id="stat-shortest-dist"></div>
-                            </div>
-                         </div>
-
-                         <div>
-                             <h4 class="text-xs text-gray-400 uppercase tracking-wider mb-2">Achievements</h4>
-                             <div class="grid grid-cols-2 gap-2" id="achievements-grid">
-                                 </div>
-                         </div>
-
-                         <div>
-                             <h4 class="text-xs text-gray-400 uppercase tracking-wider mb-2">Regions</h4>
-                             <div id="region-bars" class="space-y-2">
-                                 </div>
-                         </div>
-
-                        <div>
-                            <h4 class="text-xs text-gray-400 uppercase tracking-wider mb-2">Top Hubs</h4>
-                            <div id="stats-airports" class="space-y-2"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="absolute top-4 right-4 md:top-6 md:right-6 flex flex-col gap-3 interactive z-50 safe-pt">
-                <div class="glass rounded-xl p-1 flex flex-col gap-1">
-                    <button onclick="zoomToHome()" class="p-3 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-colors active:bg-white/20 cursor-pointer" title="Home (India)">
-                        <i class="ph-bold ph-house-line text-lg"></i>
-                    </button>
-                    <button onclick="fitToMap()" class="p-3 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-colors active:bg-white/20 cursor-pointer" title="Fit to Map">
-                         <i class="ph-bold ph-frame-corners text-lg"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div id="flight-info-tooltip" class="absolute bottom-10 md:bottom-12 left-4 right-4 md:left-1/2 md:right-auto md:transform md:-translate-x-1/2 glass rounded-xl border border-white/10 shadow-2xl shadow-blue-900/20 opacity-0 transition-opacity duration-300 flex flex-col overflow-hidden pointer-events-none z-40 max-w-2xl w-[90%] md:w-[500px] mx-auto safe-pb">
-                <div class="bg-white/5 p-3 flex justify-between items-center border-b border-white/5">
-                    <div class="flex items-center gap-2">
-                        <img id="info-airline-logo" class="w-5 h-5 object-contain hidden rounded-sm" alt="">
-                        <span class="text-xs font-bold text-gray-200 tracking-wide" id="info-airline">Airline</span>
-                    </div>
-                    <div class="flex items-center gap-3 text-[10px] font-mono">
-                        <span id="info-date" class="text-gray-400"></span>
-                        <span id="info-time" class="text-blue-300 bg-blue-500/10 px-1.5 py-0.5 rounded"></span>
-                    </div>
-                </div>
-                
-                <div class="p-4 flex items-center justify-between gap-2 bg-black/40 backdrop-blur-xl">
-                    <div class="text-center min-w-[50px]">
-                        <div class="text-2xl md:text-3xl font-bold text-white tracking-tight leading-none" id="info-from-code">JFK</div>
-                        <div class="text-[9px] text-gray-500 uppercase tracking-widest mt-1 truncate max-w-[80px] mx-auto" id="info-from-city">New York</div>
-                    </div>
-                    
-                    <div class="flex flex-col items-center flex-1 px-2">
-                        <div class="text-[9px] text-gray-500 font-mono mb-1" id="info-flight-num"></div>
-                        <div class="flex items-center gap-2 w-full">
-                            <div class="h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent flex-1"></div>
-                            <i class="ph-fill ph-airplane text-blue-400 transform rotate-90 text-sm"></i>
-                            <div class="h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent flex-1"></div>
-                        </div>
-                         <div class="text-[9px] text-blue-300 mt-1 font-mono" id="info-dist">5,400 km</div>
-                         <div id="info-cost" class="text-[10px] text-green-400 font-mono mt-1 bg-green-900/20 px-1.5 py-0.5 rounded border border-green-500/20 inline-block hidden"></div>
-                    </div>
-
-                    <div class="text-center min-w-[50px]">
-                        <div class="text-2xl md:text-3xl font-bold text-white tracking-tight leading-none" id="info-to-code">LHR</div>
-                        <div class="text-[9px] text-gray-500 uppercase tracking-widest mt-1 truncate max-w-[80px] mx-auto" id="info-to-city">London</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="absolute bottom-2 w-full text-center z-0 pointer-events-none safe-pb">
-                <span class="text-[9px] md:text-[10px] text-white/20 font-mono tracking-widest uppercase">© 2025 Arnav Dugad</span>
-            </div>
-        </div>
+  <body>
+    <div class="boot-screen" id="boot-screen" aria-live="polite">
+      <div class="boot-orbit" aria-hidden="true"><span></span><i class="ph-fill ph-airplane-tilt"></i></div>
+      <p class="eyebrow">FLIGHT LOG / INDIA</p>
+      <h1>Preparing your sky</h1>
+      <p id="boot-status">Loading the global airport atlas…</p>
     </div>
 
-    <script type="module">
-        // Import Firebase Functions
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        // --- FIREBASE CONFIGURATION ---
-        const firebaseConfig = {
-          apiKey: "AIzaSyCzL18eCQXeLVYGAjhQJE0nV86n86D26qM",
-          authDomain: "flight-log-4d48d.firebaseapp.com",
-          projectId: "flight-log-4d48d",
-          storageBucket: "flight-log-4d48d.firebasestorage.app",
-          messagingSenderId: "51886363025",
-          appId: "1:51886363025:web:312e07b3e40b8f81bfca30"
-        };
-
-        let app, auth, db, userFlightsCollection;
-        let currentUser = null;
-        let unsubscribeFlights = null;
-
-        // Initialize Firebase safely
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-        } catch (e) {
-            console.error("Firebase init failed:", e);
-        }
-
-        // --- Auth UI Logic ---
-        let isSignup = false;
-
-        window.toggleAuthModal = () => {
-            const modal = document.getElementById('auth-modal');
-            modal.classList.toggle('hidden-modal');
-            document.getElementById('auth-error').classList.add('hidden');
-        };
-
-        window.toggleAuthMode = () => {
-            isSignup = !isSignup;
-            document.getElementById('auth-title').innerHTML = isSignup ? '<i class="ph-fill ph-user-plus"></i> Sign Up' : '<i class="ph-fill ph-sign-in"></i> Sign In';
-            document.getElementById('auth-action-btn').innerText = isSignup ? 'Create Account' : 'Sign In';
-            document.getElementById('auth-toggle-text').innerText = isSignup ? 'Already have an account?' : "Don't have an account?";
-            document.getElementById('auth-toggle-btn').innerText = isSignup ? 'Sign In' : 'Sign Up';
-            document.getElementById('auth-error').classList.add('hidden');
-        };
-
-        window.handleAuthAction = async () => {
-            if(!auth) { alert("Firebase not configured properly."); return; }
-            const email = document.getElementById('auth-email').value;
-            const password = document.getElementById('auth-password').value;
-            const errorDiv = document.getElementById('auth-error');
-            
-            errorDiv.classList.add('hidden');
-            
-            try {
-                if (isSignup) {
-                    await createUserWithEmailAndPassword(auth, email, password);
-                } else {
-                    await signInWithEmailAndPassword(auth, email, password);
-                }
-                window.toggleAuthModal();
-            } catch (error) {
-                errorDiv.innerText = error.message.replace('Firebase: ', '');
-                errorDiv.classList.remove('hidden');
-            }
-        };
-
-        window.handleLogout = async () => {
-            if(auth) await signOut(auth);
-            window.toggleAuthModal();
-        };
-
-        // --- Auth State Observer ---
-        if(auth) {
-            onAuthStateChanged(auth, (user) => {
-                currentUser = user;
-                const statusDot = document.getElementById('auth-status-dot');
-                const forms = document.getElementById('auth-forms');
-                const userInfo = document.getElementById('user-info');
-                
-                if (user) {
-                    // Logged In
-                    statusDot.classList.remove('bg-red-500');
-                    statusDot.classList.add('bg-green-500', 'shadow-green-500/50', 'shadow-lg');
-                    forms.classList.add('hidden');
-                    userInfo.classList.remove('hidden');
-                    document.getElementById('user-email-display').innerText = user.email;
-                    
-                    // Setup Firestore Listener
-                    const q = query(collection(db, `users/${user.uid}/flights`), orderBy("date", "asc"));
-                    unsubscribeFlights = onSnapshot(q, (snapshot) => {
-                        window.allFlights = snapshot.docs.map(doc => ({
-                            id: doc.id, // Store Firestore ID
-                            ...doc.data()
-                        }));
-                        // Refresh UI
-                        window.filterFlights(); 
-                        window.populateYearFilter();
-                    });
-
-                } else {
-                    // Logged Out
-                    statusDot.classList.add('bg-red-500');
-                    statusDot.classList.remove('bg-green-500', 'shadow-green-500/50', 'shadow-lg');
-                    forms.classList.remove('hidden');
-                    userInfo.classList.add('hidden');
-                    
-                    if(unsubscribeFlights) unsubscribeFlights();
-                    window.allFlights = []; // Clear data on logout or revert to demo data
-                    window.filterFlights();
-                    window.populateYearFilter();
-                }
-            });
-        }
-
-        // --- Overwrite Core Logic for Firestore Integration ---
-        
-        window.addCustomFlight = async () => {
-            const fromVal = document.getElementById('input-from').value.split(' - ')[0].toUpperCase();
-            const toVal = document.getElementById('input-to').value.split(' - ')[0].toUpperCase();
-            const date = document.getElementById('input-date').value;
-            const time = document.getElementById('input-time').value;
-            const flightNum = document.getElementById('input-flight-num').value.toUpperCase();
-            const cost = document.getElementById('input-cost').value;
-            const airline = document.getElementById('input-airline').value;
-
-            if (!window.airports[fromVal] || !window.airports[toVal]) {
-                alert("Please select valid airports from the list.");
-                return;
-            }
-            if (!date) {
-                alert("Please select a date.");
-                return;
-            }
-
-            const newFlight = {
-                from: fromVal,
-                to: toVal,
-                date: date,
-                time: time,
-                flightNum: flightNum,
-                cost: cost,
-                airline: airline,
-                timestamp: serverTimestamp()
-            };
-
-            if (currentUser && db) {
-                // Save to Cloud
-                try {
-                    await addDoc(collection(db, `users/${currentUser.uid}/flights`), newFlight);
-                } catch (e) {
-                    alert("Error saving to cloud: " + e.message);
-                }
-            } else {
-                // Local only
-                window.allFlights.push(newFlight);
-                refreshApp();
-            }
-            
-            // Reset Inputs
-            document.getElementById('input-from').value = '';
-            document.getElementById('input-to').value = '';
-            document.getElementById('input-flight-num').value = '';
-            document.getElementById('input-cost').value = '';
-            document.getElementById('input-airline').value = '';
-            setText('airline-btn-text', 'Select Airline');
-            document.getElementById('airline-btn-text').classList.add('text-gray-400');
-        };
-
-        window.deleteFlight = async (indexOrId) => {
-            if(confirm("Are you sure you want to delete this flight?")) {
-                if (currentUser && db && typeof indexOrId === 'string') {
-                    // It's a Firestore ID
-                    try {
-                        await deleteDoc(doc(db, `users/${currentUser.uid}/flights`, indexOrId));
-                    } catch (e) {
-                        alert("Error deleting from cloud: " + e.message);
-                    }
-                } else {
-                    // It's a local index
-                    window.allFlights.splice(indexOrId, 1);
-                    refreshApp();
-                }
-            }
-        };
-
-        window.clearAllFlights = async () => {
-            if(confirm("Are you sure you want to clear ALL flight history? This cannot be undone.")) {
-                if(currentUser && db) {
-                     alert("Bulk delete not implemented in this demo for safety. Please delete individually.");
-                } else {
-                    window.allFlights = [];
-                    refreshApp();
-                }
-            }
-        };
-
-        function refreshApp() {
-            document.getElementById('year-filter').value = 'all';
-            window.displayFlights = [...window.allFlights];
-            window.populateYearFilter();
-            window.updateGlobeData();
-            window.updateUI();
-        }
-
-    </script>
-
-    <script>
-        // --- Safe DOM Update Helper ---
-        function setText(id, text) {
-            const el = document.getElementById(id);
-            if (el) el.innerText = text;
-        }
-
-        // --- Data: Expanded Airport Database with Continent Mapping ---
-        window.airports = {
-            "JFK": { lat: 40.6413, lng: -73.7781, city: "New York", country: "USA", region: "NA" },
-            "LHR": { lat: 51.4700, lng: -0.4543, city: "London", country: "UK", region: "EU" },
-            "HND": { lat: 35.5494, lng: 139.7798, city: "Tokyo", country: "Japan", region: "AS" },
-            "DXB": { lat: 25.2532, lng: 55.3657, city: "Dubai", country: "UAE", region: "AS" },
-            "SIN": { lat: 1.3644, lng: 103.9915, city: "Singapore", country: "Singapore", region: "AS" },
-            "SYD": { lat: -33.9399, lng: 151.1753, city: "Sydney", country: "Australia", region: "OC" },
-            "CDG": { lat: 49.0097, lng: 2.5479, city: "Paris", country: "France", region: "EU" },
-            "SFO": { lat: 37.6213, lng: -122.3790, city: "San Francisco", country: "USA", region: "NA" },
-            "GRU": { lat: -23.4356, lng: -46.4731, city: "São Paulo", country: "Brazil", region: "SA" },
-            "CPT": { lat: -33.9715, lng: 18.6021, city: "Cape Town", country: "South Africa", region: "AF" },
-            "BOM": { lat: 19.0896, lng: 72.8656, city: "Mumbai", country: "India", region: "AS" },
-            "HKG": { lat: 22.3080, lng: 113.9185, city: "Hong Kong", country: "China", region: "AS" },
-            "LAX": { lat: 33.9416, lng: -118.4085, city: "Los Angeles", country: "USA", region: "NA" },
-            "ORD": { lat: 41.9742, lng: -87.9073, city: "Chicago", country: "USA", region: "NA" },
-            "DFW": { lat: 32.8998, lng: -97.0403, city: "Dallas", country: "USA", region: "NA" },
-            "DEN": { lat: 39.8561, lng: -104.6737, city: "Denver", country: "USA", region: "NA" },
-            "IST": { lat: 41.2753, lng: 28.7519, city: "Istanbul", country: "Turkey", region: "EU" },
-            "AMS": { lat: 52.3105, lng: 4.7683, city: "Amsterdam", country: "Netherlands", region: "EU" },
-            "FRA": { lat: 50.0379, lng: 8.5622, city: "Frankfurt", country: "Germany", region: "EU" },
-            "MAD": { lat: 40.4839, lng: -3.5679, city: "Madrid", country: "Spain", region: "EU" },
-            "BCN": { lat: 41.2974, lng: 2.0833, city: "Barcelona", country: "Spain", region: "EU" },
-            "ICN": { lat: 37.4602, lng: 126.4407, city: "Seoul", country: "South Korea", region: "AS" },
-            "BKK": { lat: 13.6900, lng: 100.7501, city: "Bangkok", country: "Thailand", region: "AS" },
-            "CAN": { lat: 23.3959, lng: 113.2971, city: "Guangzhou", country: "China", region: "AS" },
-            "PEK": { lat: 40.0799, lng: 116.6031, city: "Beijing", country: "China", region: "AS" },
-            "DEL": { lat: 28.5562, lng: 77.1000, city: "New Delhi", country: "India", region: "AS" },
-            "CGK": { lat: -6.1275, lng: 106.6556, city: "Jakarta", country: "Indonesia", region: "AS" },
-            "KUL": { lat: 2.7456, lng: 101.7072, city: "Kuala Lumpur", country: "Malaysia", region: "AS" },
-            "YYZ": { lat: 43.6777, lng: -79.6248, city: "Toronto", country: "Canada", region: "NA" },
-            "YVR": { lat: 49.1947, lng: -123.1762, city: "Vancouver", country: "Canada", region: "NA" },
-            "MEX": { lat: 19.4361, lng: -99.0719, city: "Mexico City", country: "Mexico", region: "NA" },
-            "BOG": { lat: 4.7016, lng: -74.1469, city: "Bogota", country: "Colombia", region: "SA" },
-            "EZE": { lat: -34.8150, lng: -58.5348, city: "Buenos Aires", country: "Argentina", region: "SA" },
-            "JNB": { lat: -26.1367, lng: 28.2411, city: "Johannesburg", country: "South Africa", region: "AF" },
-            "CAI": { lat: 30.1219, lng: 31.4056, city: "Cairo", country: "Egypt", region: "AF" },
-            "MEL": { lat: -37.6690, lng: 144.8410, city: "Melbourne", country: "Australia", region: "OC" },
-            "AKL": { lat: -37.0082, lng: 174.7850, city: "Auckland", country: "New Zealand", region: "OC" },
-            "DOH": { lat: 25.2731, lng: 51.6081, city: "Doha", country: "Qatar", region: "AS" },
-            "AUH": { lat: 24.4448, lng: 54.6467, city: "Abu Dhabi", country: "UAE", region: "AS" },
-            "MUC": { lat: 48.3537, lng: 11.7750, city: "Munich", country: "Germany", region: "EU" },
-            "ZRH": { lat: 47.4582, lng: 8.5555, city: "Zurich", country: "Switzerland", region: "EU" },
-            "FCO": { lat: 41.8003, lng: 12.2389, city: "Rome", country: "Italy", region: "EU" },
-            "DUB": { lat: 53.4264, lng: -6.2499, city: "Dublin", country: "Ireland", region: "EU" },
-            "IXE": { lat: 12.9613, lng: 74.8901, city: "Mangalore", country: "India", region: "AS" },
-            "BLR": { lat: 13.1986, lng: 77.7066, city: "Bangalore", country: "India", region: "AS" },
-            "IDR": { lat: 22.7232, lng: 75.8011, city: "Indore", country: "India", region: "AS" },
-            "JAI": { lat: 26.8286, lng: 75.8056, city: "Jaipur", country: "India", region: "AS" },
-            "DMM": { lat: 26.4716, lng: 49.7978, city: "Dammam", country: "Saudi Arabia", region: "AS" },
-            "BAH": { lat: 26.2708, lng: 50.6336, city: "Manama", country: "Bahrain", region: "AS" },
-            "HYD": { lat: 17.2403, lng: 78.4294, city: "Hyderabad", country: "India", region: "AS" },
-            "AMD": { lat: 23.0764, lng: 72.6310, city: "Ahmedabad", country: "India", region: "AS" }
-        };
-
-        const airlinesData = [
-            { name: "Air India Express", logo: "https://pics.avs.io/200/200/IX.png" },
-            { name: "Air India", logo: "https://pics.avs.io/200/200/AI.png" },
-            { name: "IndiGo", logo: "https://pics.avs.io/200/200/6E.png" },
-            { name: "Etihad", logo: "https://pics.avs.io/200/200/EY.png" },
-            { name: "Emirates", logo: "https://pics.avs.io/200/200/EK.png" },
-            { name: "Saudia", logo: "https://pics.avs.io/200/200/SV.png" },
-            { name: "Air Arabia", logo: "https://pics.avs.io/200/200/G9.png" },
-            { name: "Gulf Air", logo: "https://pics.avs.io/200/200/GF.png" },
-            { name: "Qatar Airways", logo: "https://pics.avs.io/200/200/QR.png" }
-        ];
-
-        // Initial Flights Data (Fallback / Demo)
-        window.allFlights = [
-            { from: "SFO", to: "HND", date: "2023-05-12", time: "10:00", airline: "Air India", flightNum: "AI101", cost: 65000 },
-            { from: "HND", to: "SIN", date: "2023-05-20", time: "14:30", airline: "IndiGo", flightNum: "6E55", cost: 25000 },
-            { from: "SIN", to: "DXB", date: "2023-06-01", time: "02:15", airline: "Emirates", flightNum: "EK354", cost: 42000 },
-            { from: "DXB", to: "LHR", date: "2023-06-05", time: "08:45", airline: "Etihad", flightNum: "EY11", cost: 38000 },
-            { from: "LHR", to: "JFK", date: "2023-11-15", time: "18:20", airline: "Qatar Airways", flightNum: "QR7", cost: 55000 }
-        ];
-        
-        window.displayFlights = [...window.allFlights];
-
-        // --- Globe Initialization ---
-        const globeContainer = document.getElementById('globeViz');
-        let world;
-        let autoRotate = true;
-        let showAirports = true;
-        let hoveredFlightId = null; 
-        let lockedFlightId = null; // New state for locked selection
-
-        function initGlobe() {
-            if (typeof Globe === 'undefined') {
-                setTimeout(initGlobe, 100);
-                return;
-            }
-
-            // Mobile-first check
-            if (window.innerWidth < 768) {
-                const sidebar = document.getElementById('sidebar');
-                const expandBtn = document.getElementById('expand-btn');
-                if (sidebar) sidebar.classList.add('collapsed');
-                if (expandBtn) { expandBtn.classList.remove('hidden'); expandBtn.classList.add('flex'); }
-            }
-
-            world = Globe()
-                (globeContainer)
-                .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
-                .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-                .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
-                
-                // Arc (Flight) Styling - Thinner arcs
-                .arcColor(d => {
-                    const isActive = d.id === lockedFlightId || (hoveredFlightId !== null && d.id === hoveredFlightId);
-                    if (lockedFlightId !== null) {
-                        return isActive ? '#FFD700' : 'rgba(255,255,255,0.02)'; // Dim others heavily when locked
-                    }
-                    if (hoveredFlightId !== null) {
-                        return isActive ? '#FFD700' : 'rgba(255,255,255,0.05)';
-                    }
-                    return d.color;
-                })
-                .arcStroke(d => {
-                    const isActive = d.id === lockedFlightId || d.id === hoveredFlightId;
-                    return isActive ? 2.0 : 1.0; 
-                })
-                .arcAltitude(d => {
-                    const isActive = d.id === lockedFlightId || d.id === hoveredFlightId;
-                    return isActive ? d.arcAlt * 1.2 : d.arcAlt;
-                })
-                .arcLabel(d => `Flight: ${d.from} → ${d.to}`)
-                .onArcHover(hoverArc)
-                .onArcClick(d => { 
-                    focusFlight(window.displayFlights[d.id]); // Locks and highlights
-                })
-                .onGlobeClick(() => {
-                    // Unlock on background click
-                    lockedFlightId = null;
-                    if(autoRotate) world.controls().autoRotate = true;
-                    hoveredFlightId = null;
-                    updateGlobeData();
-                    // Clear tooltip
-                    const tooltip = document.getElementById('flight-info-tooltip');
-                    if(tooltip) tooltip.classList.add('opacity-0');
-                    // Reset card styles
-                    document.querySelectorAll('.flight-card').forEach(el => el.classList.remove('active-card'));
-                })
-
-                // Point (Airport) Styling
-                .pointColor(() => '#4ade80') 
-                .pointAltitude(0.02)
-                .pointRadius(0.3)
-                .pointResolution(20) 
-                .pointLabel(d => `${d.city} (${d.code})`)
-                .onPointClick(d => {
-                    world.pointOfView({ lat: d.lat, lng: d.lng, altitude: 1.5 }, 1000);
-                });
-
-            world.pointOfView({ lat: 22, lng: 78, altitude: 2.0 });
-            
-            world.controls().autoRotate = true;
-            world.controls().autoRotateSpeed = 0.6;
-
-            populateDatalist();
-            populateAirlineDropdown();
-            window.populateYearFilter();
-            window.updateGlobeData();
-            window.updateUI();
-            
-            setupScreensaver();
-        }
-
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', initGlobe);
-
-        // --- Logic & Updates ---
-
-        function populateDatalist() {
-            const datalist = document.getElementById('airport-list');
-            if(!datalist) return;
-            const sortedCodes = Object.keys(window.airports).sort();
-            datalist.innerHTML = '';
-            sortedCodes.forEach(code => {
-                const airport = window.airports[code];
-                const option = document.createElement('option');
-                option.value = `${code} - ${airport.city}`; 
-                datalist.appendChild(option);
-            });
-            const dInput = document.getElementById('input-date');
-            if(dInput) dInput.valueAsDate = new Date();
-        }
-
-        function populateAirlineDropdown() {
-            const dropdown = document.getElementById('airline-dropdown');
-            if(!dropdown) return;
-            dropdown.innerHTML = '';
-            airlinesData.forEach(al => {
-                const div = document.createElement('div');
-                div.className = "airline-option flex items-center gap-3 p-3 cursor-pointer border-b border-white/5 last:border-0";
-                div.onclick = () => selectAirline(al.name);
-                div.innerHTML = `<br>
-                    <img src="${al.logo}" alt="${al.name}" class="w-10 h-10 object-contain bg-white/10 rounded-full p-1"><br>
-                    <span class="text-sm text-gray-200">${al.name}</span><br>
-                `;
-                dropdown.appendChild(div);
-            });
-        }
-
-        window.populateYearFilter = function() {
-            const yearSelect = document.getElementById('year-filter');
-            if(!yearSelect) return;
-            const years = new Set(window.allFlights.map(f => f.date.split('-')[0]).filter(Boolean));
-            while(yearSelect.options.length > 1) yearSelect.remove(1);
-            Array.from(years).sort().reverse().forEach(year => {
-                const opt = document.createElement('option');
-                opt.value = year; opt.text = year; yearSelect.add(opt);
-            });
-        }
-
-        window.filterFlights = function() {
-            const yearFilter = document.getElementById('year-filter');
-            if(!yearFilter) return;
-            const year = yearFilter.value;
-            if (year === 'all') {
-                window.displayFlights = [...window.allFlights];
-                setText('filtered-count', '');
-            } else {
-                window.displayFlights = window.allFlights.filter(f => f.date.startsWith(year));
-                setText('filtered-count', `${window.displayFlights.length} flights in ${year}`);
-            }
-            window.updateGlobeData();
-            window.updateUI();
-        }
-
-        window.toggleAirlineDropdown = function() {
-            const el = document.getElementById('airline-dropdown');
-            if(el) el.classList.toggle('hidden');
-        }
-
-        function selectAirline(name) {
-            const inp = document.getElementById('input-airline');
-            if(inp) inp.value = name;
-            setText('airline-btn-text', name);
-            const btnText = document.getElementById('airline-btn-text');
-            if(btnText) {
-                btnText.classList.remove('text-gray-400');
-                btnText.classList.add('text-white');
-            }
-            window.toggleAirlineDropdown();
-        }
-        
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('airline-dropdown');
-            const btn = document.getElementById('airline-btn');
-            if (dropdown && btn && !dropdown.contains(event.target) && !btn.contains(event.target)) {
-                dropdown.classList.add('hidden');
-            }
-        });
-
-        window.swapAirports = function() {
-            const fromInput = document.getElementById('input-from');
-            const toInput = document.getElementById('input-to');
-            if(fromInput && toInput) {
-                const temp = fromInput.value;
-                fromInput.value = toInput.value;
-                toInput.value = temp;
-            }
-        }
-
-
-        window.toggleSidebar = function() {
-            const sidebar = document.getElementById('sidebar');
-            const expandBtn = document.getElementById('expand-btn');
-            sidebar.classList.toggle('collapsed');
-            
-            if (sidebar.classList.contains('collapsed')) {
-                expandBtn.classList.remove('hidden');
-                expandBtn.classList.add('flex');
-            } else {
-                expandBtn.classList.add('hidden');
-                expandBtn.classList.remove('flex');
-            }
-        }
-
-        window.toggleStats = function() {
-            const modal = document.getElementById('stats-modal');
-            modal.classList.toggle('hidden-modal');
-        }
-
-        window.toggleSettings = function() {
-            const modal = document.getElementById('settings-modal');
-            modal.classList.toggle('hidden-modal');
-        }
-        
-        window.updateRotationSpeed = function(val) {
-            if(world) {
-                world.controls().autoRotateSpeed = val / 10;
-            }
-        }
-
-        // --- Interaction Logic (Fixed) ---
-
-        function focusFlight(flight) {
-            if (!flight) return;
-            
-            // Find flight ID
-            const idx = window.displayFlights.indexOf(flight);
-            if(idx === -1) return;
-
-            lockedFlightId = idx;
-            hoveredFlightId = idx;
-            
-            const start = window.airports[flight.from];
-            const end = window.airports[flight.to];
-            
-            if(world && start && end) {
-                // Calculate midpoint
-                const lat = (start.lat + end.lat) / 2;
-                // Simple avg for lng is tricky around 180, but sufficient here
-                let lng = (start.lng + end.lng) / 2;
-                // Handle dateline crossing roughly
-                if (Math.abs(start.lng - end.lng) > 180) {
-                    lng += 180;
-                }
-
-                world.pointOfView({ lat: lat, lng: lng, altitude: 1.8 }, 1500);
-                world.controls().autoRotate = false;
-            }
-
-            // Highlight card
-            document.querySelectorAll('.flight-card').forEach((el, i) => {
-                if (i === idx) {
-                    el.classList.add('active-card');
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else {
-                    el.classList.remove('active-card');
-                }
-            });
-
-            // Show Tooltip
-            updateTooltip(flight, start, end);
-            window.updateGlobeData();
-        }
-
-        function hoverArc(arc) {
-            if (lockedFlightId !== null) return; // Don't override lock
-
-            if (arc) {
-                hoveredFlightId = arc.id;
-                const flight = window.displayFlights[arc.id];
-                const start = window.airports[flight.from];
-                const end = window.airports[flight.to];
-                updateTooltip(flight, start, end);
-                
-                // Highlight card
-                document.querySelectorAll('.flight-card').forEach((el, i) => {
-                    if (i === arc.id) el.classList.add('active-card');
-                    else el.classList.remove('active-card');
-                });
-            } else {
-                hoveredFlightId = null;
-                const tooltip = document.getElementById('flight-info-tooltip');
-                if(tooltip) tooltip.classList.add('opacity-0');
-                
-                document.querySelectorAll('.flight-card').forEach(el => el.classList.remove('active-card'));
-            }
-            window.updateGlobeData();
-        }
-
-        function updateTooltip(flight, start, end) {
-            const tooltip = document.getElementById('flight-info-tooltip');
-            if(!tooltip) return;
-
-            setText('info-airline', flight.airline || 'Unknown Airline');
-            setText('info-date', flight.date);
-            setText('info-time', flight.time || '');
-            setText('info-from-code', flight.from);
-            setText('info-from-city', start.city);
-            setText('info-to-code', flight.to);
-            setText('info-to-city', end.city);
-            setText('info-flight-num', flight.flightNum || '');
-            
-            const distKm = Math.floor(6371 * getDistanceRadians(start.lat, start.lng, end.lat, end.lng));
-            setText('info-dist', `${distKm.toLocaleString()} km`);
-
-            const logoImg = document.getElementById('info-airline-logo');
-            const airlineData = airlinesData.find(a => a.name === flight.airline);
-            if (airlineData) {
-                logoImg.src = airlineData.logo;
-                logoImg.classList.remove('hidden');
-            } else {
-                logoImg.classList.add('hidden');
-            }
-
-            const costEl = document.getElementById('info-cost');
-            if(flight.cost) {
-                costEl.innerText = formatCurrency(flight.cost);
-                costEl.classList.remove('hidden');
-            } else {
-                costEl.classList.add('hidden');
-            }
-
-            tooltip.classList.remove('opacity-0');
-        }
-
-        // --- Easter Eggs (Fixed) ---
-        window.triggerBarrelRoll = function() {
-            const body = document.body;
-            if(!body.classList.contains('barrel-rolling')) {
-                // Apply rotation to the whole body or just globe? Applying to body is safer
-                document.getElementById('globeViz').classList.add('barrel-rolling');
-                setTimeout(() => {
-                    document.getElementById('globeViz').classList.remove('barrel-rolling');
-                }, 1000);
-            }
-        }
-
-        let moonClicks = 0;
-        window.triggerMoonEasterEgg = function() {
-            moonClicks++;
-            if (moonClicks === 5) {
-                alert("🚀 To the Moon! (Sort of...)");
-                world.pointOfView({ altitude: 10 }, 2000); // Zoom way out
-                moonClicks = 0;
-            }
-        }
-
-        function getDistanceRadians(lat1, lng1, lat2, lng2) {
-            const phi1 = lat1 * Math.PI / 180;
-            const phi2 = lat2 * Math.PI / 180;
-            const dPhi = (lat2 - lat1) * Math.PI / 180;
-            const dLambda = (lng2 - lng1) * Math.PI / 180;
-            const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
-            return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        }
-
-        function getArcData() {
-            return window.displayFlights.map((f, idx) => {
-                const start = window.airports[f.from];
-                const end = window.airports[f.to];
-                if (!start || !end) return null;
-                
-                const distRad = getDistanceRadians(start.lat, start.lng, end.lat, end.lng);
-                const distKm = distRad * 6371;
-                
-                let alt = distRad * 0.35; 
-                if (alt < 0.1) alt = 0.1;
-                
-                // Solid colors per user request
-                let color;
-                if (distKm < 2000) color = 'rgba(255, 255, 255, 0.4)'; 
-                else if (distKm > 9000) color = '#FF4500'; 
-                else color = 'rgba(60, 150, 255, 0.8)';
-
-                return {
-                    id: idx, 
-                    startLat: start.lat,
-                    startLng: start.lng,
-                    endLat: end.lat,
-                    endLng: end.lng,
-                    from: f.from,
-                    to: f.to,
-                    date: f.date,
-                    time: f.time, // Added time to arc data
-                    airline: f.airline || '',
-                    flightNum: f.flightNum || '',
-                    cost: f.cost,
-                    arcAlt: alt,
-                    color: color
-                };
-            }).filter(Boolean);
-        }
-
-        function getPointData() {
-            if (!showAirports) return [];
-            const codes = new Set([...window.displayFlights.map(f => f.from), ...window.displayFlights.map(f => f.to)]);
-            return Array.from(codes).map(code => ({ code, ...window.airports[code] }));
-        }
-
-        window.updateGlobeData = function() {
-            if (!world) return;
-            // No arc animation by default per request
-            world.arcDashLength(1) 
-                 .arcDashGap(0)
-                 .arcDashAnimateTime(0);
-                 
-            world.arcsData(getArcData());
-            world.pointsData(getPointData());
-            world.objectsData([]); 
-        }
-
-        function highlightFlight(index) {
-            // Don't override locked flight on hover
-            if (lockedFlightId !== null) return;
-
-            hoveredFlightId = index;
-            window.updateGlobeData();
-            document.querySelectorAll('.flight-card').forEach((el, i) => {
-                if (i === index) el.classList.add('active-card');
-                else el.classList.remove('active-card');
-            });
-        }
-
-        function unhighlightFlight() {
-            if (lockedFlightId !== null) return;
-
-            hoveredFlightId = null;
-            window.updateGlobeData();
-            document.querySelectorAll('.flight-card').forEach(el => el.classList.remove('active-card'));
-        }
-
-        function formatCurrency(amount) {
-            if (!amount && amount !== 0) return '₹--';
-            return new Intl.NumberFormat('en-IN', {
-                style: 'currency',
-                currency: 'INR',
-                maximumFractionDigits: 0
-            }).format(amount);
-        }
-
-        window.updateUI = function() {
-            const list = document.getElementById('flight-list');
-            if(list) list.innerHTML = '';
-
-            let kmTotal = 0;
-            let totalCost = 0;
-            const uniqueCountries = new Set();
-
-            [...window.displayFlights].reverse().forEach((f, idx) => {
-                const realIndex = window.displayFlights.indexOf(f); 
-                // Store Firestore ID for deletion if available, else use index
-                const deleteParam = f.id ? `'${f.id}'` : window.allFlights.indexOf(f);
-                
-                const start = window.airports[f.from];
-                const end = window.airports[f.to];
-                if(start) uniqueCountries.add(start.country);
-                if(end) uniqueCountries.add(end.country);
-
-                const R = 6371; 
-                const distRad = getDistanceRadians(start.lat, start.lng, end.lat, end.lng);
-                const dist = Math.floor(R * distRad);
-                kmTotal += dist;
-                
-                if (f.cost) totalCost += Number(f.cost);
-
-                if(list) {
-                    const card = document.createElement('div');
-                    // Compact styling for mobile: p-2 instead of p-3, smaller gaps
-                    card.className = 'flight-card glass rounded-xl cursor-pointer fade-in relative group overflow-hidden border border-white/5 hover:border-white/20 mb-1';
-                    card.style.animationDelay = `${idx * 0.05}s`;
-                    card.dataset.index = realIndex;
-                    
-                    card.onmouseenter = () => highlightFlight(realIndex);
-                    card.onmouseleave = unhighlightFlight;
-                    card.onclick = (e) => {
-                        if(e.target.closest('.delete-btn')) return;
-                        focusFlight(f);
-                    };
-                    
-                    const airlineData = airlinesData.find(a => a.name === f.airline);
-                    const logoHtml = airlineData 
-                        ? `<img src="${airlineData.logo}" class="w-4 h-4 object-contain rounded-sm" title="${f.airline}">`
-                        : (f.airline ? `<div class="w-4 h-4 flex items-center justify-center bg-white/10 rounded-sm"><i class="ph-fill ph-airplane text-yellow-400 text-[10px]"></i></div>` : `<div class="w-4 h-4 flex items-center justify-center bg-white/5 rounded-sm"><i class="ph-bold ph-airplane text-gray-600 text-[10px]"></i></div>`);
-                    
-                    const timeHtml = f.time ? `<span class="text-blue-300 font-bold bg-blue-500/10 px-1 py-0.5 rounded ml-1.5 md:ml-2 text-[8px] md:text-[9px]">${f.time}</span>` : '';
-                    
-                    // Format flight cost or return empty
-                    const costHtml = f.cost ? `<span class="text-green-400 font-mono text-[8px] bg-green-900/20 px-1 py-0.5 rounded border border-green-500/20">${formatCurrency(f.cost)}</span>` : '';
-
-                    // UPDATED CARD HTML FOR MAXIMUM COMPACTNESS
-                    card.innerHTML = `<br>
-                        <div class="flex justify-between items-center px-2 py-1 bg-white/5 border-b border-white/5"><br>
-                            <div class="flex items-center gap-2"><br>
-                                ${logoHtml}<br>
-                                <div class="flex flex-col"><br>
-                                    <div class="text-[9px] font-bold text-gray-200 leading-tight truncate max-w-[80px] md:max-w-none">${f.airline || 'Unknown'}</div><br>
-                                    <div class="text-[8px] text-gray-500 font-mono leading-tight flex items-center"><br>
-                                        ${f.date}<br>
-                                        ${timeHtml}<br>
-                                    </div><br>
-                                </div><br>
-                            </div><br>
-                            <div class="flex items-center gap-1.5"><br>
-                                ${costHtml}<br>
-                                <span class="text-[8px] font-mono text-gray-600 border border-white/10 px-1 rounded">${f.flightNum || '---'}</span><br>
-                                <button onclick="window.deleteFlight(${deleteParam})" class="delete-btn text-gray-500 hover:text-red-400 p-1 transition-colors z-20"><br>
-                                    <i class="ph-bold ph-trash text-xs"></i><br>
-                                </button><br>
-                            </div><br>
-                        </div><br>
-
-                        <div class="px-2 py-1.5 flex items-center justify-between relative"><br>
-                            <div class="text-center w-8"><br>
-                                <div class="text-sm font-bold text-white tracking-wide leading-none">${f.from}</div><br>
-                                <div class="text-[8px] text-gray-500 truncate w-full leading-tight mt-0.5">${start.city}</div><br>
-                            </div><br>
-
-                            <div class="flex-1 px-1 flex flex-col items-center justify-center -mt-0.5"><br>
-                                <div class="text-[8px] text-blue-400/80 mb-0.5 font-mono">${dist.toLocaleString()} km</div><br>
-                                <div class="relative w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"><br>
-                                    <i class="ph-fill ph-airplane text-blue-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-90 text-[9px] bg-[#141414] px-1"></i><br>
-                                </div><br>
-                            </div><br>
-
-                            <div class="text-center w-8"><br>
-                                <div class="text-sm font-bold text-white tracking-wide leading-none">${f.to}</div><br>
-                                <div class="text-[8px] text-gray-500 truncate w-full leading-tight mt-0.5">${end.city}</div><br>
-                            </div><br>
-                        </div><br>
-                    `;
-                    list.appendChild(card);
-                }
-            });
-
-            setText('total-flights', window.displayFlights.length);
-            setText('total-km', Math.floor(kmTotal / 1000));
-            setText('total-countries', uniqueCountries.size);
-            
-            updateStatsModal(kmTotal, totalCost);
-        }
-
-        function updateStatsModal(totalKm, totalCost) {
-            const airportCounts = {};
-            const airlineCounts = {};
-            const yearCounts = {};
-            const regionCounts = {};
-            let maxDist = 0;
-            let minDist = Infinity;
-            
-            // Jetlag & Layover Tracking
-            let totalTimezones = 0;
-            let maxHop = 0;
-            let brutalHop = null;
-            let minConn = Infinity;
-            let maxConn = 0;
-            let tightConn = null;
-            
-            // Helper: approx timezone from longitude (15 deg per hour)
-            const getTz = (lng) => Math.round(lng / 15);
-
-            // Sort flights for layover calc (clone first)
-            const sortedFlights = [...window.displayFlights].sort((a,b) => {
-                const da = new Date(a.date + 'T' + (a.time || '00:00'));
-                const db = new Date(b.date + 'T' + (b.time || '00:00'));
-                return da - db;
-            });
-
-            if (window.displayFlights.length === 0) minDist = 0;
-
-            window.displayFlights.forEach(f => {
-                airportCounts[f.from] = (airportCounts[f.from] || 0) + 1;
-                airportCounts[f.to] = (airportCounts[f.to] || 0) + 1;
-                if (f.airline && f.airline.trim() !== "") airlineCounts[f.airline] = (airlineCounts[f.airline] || 0) + 1;
-                if (f.date) yearCounts[f.date.split('-')[0]] = (yearCounts[f.date.split('-')[0]] || 0) + 1;
-                
-                const start = window.airports[f.from]; const end = window.airports[f.to];
-                if(start && start.region) regionCounts[start.region] = (regionCounts[start.region] || 0) + 1;
-                if(end && end.region) regionCounts[end.region] = (regionCounts[end.region] || 0) + 1;
-
-                if(start && end) {
-                    const R = 6371; 
-                    const distRad = getDistanceRadians(start.lat, start.lng, end.lat, end.lng);
-                    const dist = Math.floor(R * distRad);
-                    if(dist > maxDist) maxDist = dist;
-                    if(dist < minDist) minDist = dist;
-                    
-                    // Timezones
-                    const startTz = getTz(start.lng);
-                    const endTz = getTz(end.lng);
-                    const diff = Math.abs(endTz - startTz);
-                    totalTimezones += diff;
-                    if(diff > maxHop) { maxHop = diff; brutalHop = f; }
-                }
-            });
-            
-            // Layover Logic
-            for(let i=0; i<sortedFlights.length-1; i++) {
-                const curr = sortedFlights[i];
-                const next = sortedFlights[i+1];
-                if(curr.to === next.from) {
-                    const s = window.airports[curr.from]; const e = window.airports[curr.to];
-                    const dist = Math.floor(6371 * getDistanceRadians(s.lat, s.lng, e.lat, e.lng));
-                    const estDurationHours = (dist / 800) + 1; // +1h for landing/taxi
-                    
-                    const arrivalTime = new Date(curr.date + 'T' + (curr.time || '00:00')).getTime() + (estDurationHours * 3600000);
-                    const departTime = new Date(next.date + 'T' + (next.time || '00:00')).getTime();
-                    
-                    const layoverMins = (departTime - arrivalTime) / 60000;
-                    if(layoverMins > 30 && layoverMins < 1440) { // Valid connection window
-                        if(layoverMins < minConn) { minConn = layoverMins; tightConn = { airport: curr.to, mins: layoverMins }; }
-                        if(layoverMins > maxConn) maxConn = layoverMins;
-                    }
-                }
-            }
-
-            // setText('stat-timezones', totalTimezones); // Element removed in HTML but logic kept
-            if(brutalHop) {
-                setText('stat-brutal-hop', `${maxHop}h Shift`);
-                setText('stat-brutal-hop-val', `${brutalHop.from} -> ${brutalHop.to}`);
-            } else {
-                setText('stat-brutal-hop', '--'); setText('stat-brutal-hop-val', '');
-            }
-            
-            if(tightConn) {
-                const h = Math.floor(tightConn.mins/60);
-                const m = Math.floor(tightConn.mins%60);
-                setText('stat-tight-conn', `${h}h ${m}m`);
-                setText('stat-tight-conn-val', `in ${tightConn.airport}`);
-            } else {
-                setText('stat-tight-conn', '--'); setText('stat-tight-conn-val', '');
-            }
-
-            // Personality Logic
-            let personality = "The Explorer";
-            if (totalKm > 100000) personality = "The Long-Hauler";
-            else if (window.displayFlights.length / Object.keys(regionCounts).length < 2) personality = "The Connector";
-            else if (window.displayFlights.length > 20 && totalKm < 50000) personality = "The Hub Hopper";
-            
-            setText('stat-personality', personality);
-            // setText('pass-personality', personality); // Removed from passport
-
-            // Carbon Footprint
-            const co2Kg = Math.floor(totalKm * 0.115);
-            const co2Tons = (co2Kg / 1000).toFixed(2);
-            const trees = Math.ceil(co2Kg / 20);
-            
-            setText('stat-co2', `${co2Tons}t CO₂`);
-            setText('stat-trees', `${trees} trees offset`);
-            // setText('pass-co2', `${co2Tons}t`); // Removed from passport
-
-            // FINANCIALS UPDATE
-            setText('stat-total-spent', formatCurrency(totalCost));
-            setText('pass-total-cost', formatCurrency(totalCost));
-            
-            if(totalKm > 0 && totalCost > 0) {
-                const cpk = (totalCost / totalKm).toFixed(2);
-                setText('stat-cost-km', `₹${cpk} / km`);
-            } else {
-                setText('stat-cost-km', `₹0 / km`);
-            }
-
-            // Fav Airline
-            let favAirline = '--'; let maxCount = 0;
-            for (const [name, count] of Object.entries(airlineCounts)) { if (count > maxCount) { maxCount = count; favAirline = name; } }
-            
-            // setText('stat-fav-airline', favAirline); // Removed from stats
-            setText('pass-airline', favAirline);
-            
-            const alData = airlinesData.find(a => a.name === favAirline);
-            const passLogo = document.getElementById('pass-airline-logo');
-            if(passLogo) {
-                if(alData) { passLogo.src = alData.logo; passLogo.classList.remove('hidden'); }
-                else { passLogo.classList.add('hidden'); }
-            }
-
-            // Achievements
-            const achievementsGrid = document.getElementById('achievements-grid');
-            if(achievementsGrid) {
-                achievementsGrid.innerHTML = '';
-                const badges = [
-                    { icon: 'ph-globe', text: 'Around the World', earned: totalKm > 40075, desc: '40k+ km' },
-                    { icon: 'ph-flag', text: 'Explorer', earned: Object.keys(airportCounts).length >= 5, desc: '5+ Airports' },
-                    { icon: 'ph-airplane-tilt', text: 'Frequent Flyer', earned: window.displayFlights.length >= 10, desc: '10+ Flights' },
-                    { icon: 'ph-clock', text: 'Jet Lagged', earned: totalTimezones > 20, desc: '20+ Timezones' }
-                ];
-                badges.forEach(b => {
-                    const opacity = b.earned ? 'opacity-100' : 'opacity-40 grayscale';
-                    const bg = b.earned ? 'bg-gradient-to-br from-blue-600 to-blue-900' : 'bg-white/5';
-                    achievementsGrid.innerHTML += `<div class="p-2 rounded border border-white/10 ${bg} ${opacity} flex items-center gap-2"><i class="ph-fill ${b.icon} text-xl"></i><div><div class="text-[10px] font-bold uppercase">${b.text}</div><div class="text-[9px] opacity-70">${b.desc}</div></div></div>`;
-                });
-            }
-
-            // Region Chart
-            const regionBars = document.getElementById('region-bars');
-            if(regionBars) {
-                regionBars.innerHTML = '';
-                const totalRegions = Object.values(regionCounts).reduce((a,b) => a+b, 0);
-                const regionNames = { 'AS': 'Asia', 'EU': 'Europe', 'NA': 'N. America', 'SA': 'S. America', 'AF': 'Africa', 'OC': 'Oceania' };
-                Object.entries(regionCounts).sort((a,b) => b[1] - a[1]).forEach(([code, count]) => {
-                    const pct = Math.round((count / totalRegions) * 100);
-                    regionBars.innerHTML += `<div class="flex items-center gap-2 text-xs"><div class="w-16 text-gray-400">${regionNames[code] || code}</div><div class="flex-1 h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-blue-500" style="width: ${pct}%"></div></div><div class="w-8 text-right font-mono">${pct}%</div></div>`;
-                });
-            }
-
-            // Top Airports
-            const sortedAirports = Object.entries(airportCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            const airportContainer = document.getElementById('stats-airports');
-            if(airportContainer) {
-                airportContainer.innerHTML = '';
-                sortedAirports.forEach(([code, count], index) => {
-                    const city = window.airports[code] ? window.airports[code].city : 'Unknown';
-                    let rankBadge = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
-                    airportContainer.innerHTML += `<div class="flex justify-between items-center p-2 bg-white/5 rounded"><div class="flex items-center gap-2"><span class="text-base">${rankBadge}</span><div><div class="text-sm font-bold text-white">${code}</div><div class="text-[10px] text-gray-400">${city}</div></div></div><div class="text-sm font-semibold text-blue-400">${count} <span class="text-[10px] text-gray-500 font-normal">visits</span></div></div>`;
-                });
-            }
-            
-            // Passport Data
-            setText('pass-dist', Math.floor(totalKm).toLocaleString() + " km");
-            setText('pass-flights', window.displayFlights.length);
-            
-            const uniqueCountriesPassport = new Set();
-            window.displayFlights.forEach(f => { if(window.airports[f.from]) uniqueCountriesPassport.add(window.airports[f.from].country); if(window.airports[f.to]) uniqueCountriesPassport.add(window.airports[f.to].country); });
-            setText('pass-countries', uniqueCountriesPassport.size);
-            
-            // Passport Stamps
-            const stampsContainer = document.getElementById('pass-stamps');
-            if(stampsContainer) {
-                stampsContainer.innerHTML = '';
-                Array.from(uniqueCountriesPassport).slice(0, 12).forEach(country => { // Increased to 12
-                    // Generate a "random" color hash for the stamp border
-                    const hash = country.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
-                    const hue = hash % 360;
-                    stampsContainer.innerHTML += `<br>
-                        <div class="stamp w-14 h-14 rounded-full border-2 border-dashed flex items-center justify-center text-[8px] text-center uppercase leading-tight transform rotate-${(hash%20)-10}" style="border-color: hsl(${hue}, 70%, 60%); color: hsl(${hue}, 70%, 60%)"><br>
-                            ${country.substring(0, 20)}<br>VISITED<br>
-                        </div><br>
-                    `;
-                });
-            }
-            
-            // Longest/Shortest
-            let longestFlight = null;
-            let shortestFlight = null;
-            let maxDistLocal = 0;
-            let minDistLocal = Infinity;
-            if(window.displayFlights.length === 0) minDistLocal = 0;
-
-            window.displayFlights.forEach(f => {
-                const start = window.airports[f.from]; const end = window.airports[f.to];
-                if(start && end) {
-                    const R = 6371; 
-                    const dist = Math.floor(R * getDistanceRadians(start.lat, start.lng, end.lat, end.lng));
-                    if(dist > maxDistLocal) { maxDistLocal = dist; longestFlight = f; }
-                    if(dist < minDistLocal) { minDistLocal = dist; shortestFlight = f; }
-                }
-            });
-            
-            if(longestFlight) {
-                setText('stat-longest', `${longestFlight.from} - ${longestFlight.to}`);
-                setText('stat-longest-dist', `${maxDistLocal.toLocaleString()} km`);
-            } else {
-                setText('stat-longest', '--');
-                setText('stat-longest-dist', '');
-            }
-
-            if(shortestFlight && window.displayFlights.length > 0) {
-                setText('stat-shortest', `${shortestFlight.from} - ${shortestFlight.to}`);
-                setText('stat-shortest-dist', `${minDistLocal.toLocaleString()} km`);
-            } else {
-                setText('stat-shortest', '--');
-                setText('stat-shortest-dist', '');
-            }
-
-
-            // If the passport modal is open, keep QR in sync with latest stats
-            const pm = document.getElementById('passport-modal');
-            if (pm && !pm.classList.contains('hidden-modal')) {
-                window.generatePassportQR();
-            }
-        }
-
-        // --- Screensaver Logic ---
-        let idleTime = 0;
-        function setupScreensaver() {
-            setInterval(() => {
-                idleTime++;
-                if (idleTime > 30) { // 30s idle
-                    document.body.classList.add('screensaver');
-                    if (world) world.controls().autoRotateSpeed = 1.5; 
-                }
-            }, 1000);
-
-            // Reset idle on events
-            ['mousemove', 'keydown', 'click', 'scroll'].forEach(evt => {
-                document.addEventListener(evt, () => {
-                    idleTime = 0;
-                    document.body.classList.remove('screensaver');
-                    if (world) world.controls().autoRotateSpeed = 0.6; 
-                });
-            });
-        }
-
-        // --- Passport Logic ---
-        function fnv1a32(str) {
-            let h = 0x811c9dc5;
-            for (let i = 0; i < str.length; i++) {
-                h ^= str.charCodeAt(i);
-                h = Math.imul(h, 0x01000193);
-            }
-            return ("00000000" + (h >>> 0).toString(16)).slice(-8).toUpperCase();
-        }
-
-        function normalizeSpaces(s) {
-            return String(s || "").trim().replace(/\s+/g, " ");
-        }
-
-        function computePassportStatsFromFlights(flightsArr) {
-            let totalKm = 0;
-            const countries = new Set();
-            const airlineCounts = {};
-
-            flightsArr.forEach(f => {
-                const start = window.airports[f.from];
-                const end = window.airports[f.to];
-                if (!start || !end) return;
-
-                const dist = Math.floor(6371 * getDistanceRadians(start.lat, start.lng, end.lat, end.lng));
-                totalKm += dist;
-
-                countries.add(start.country);
-                countries.add(end.country);
-
-                const al = normalizeSpaces(f.airline || "");
-                if (al) airlineCounts[al] = (airlineCounts[al] || 0) + 1;
-            });
-
-            const co2Kg = Math.floor(totalKm * 0.115);
-            const co2Tons = (co2Kg / 1000);
-
-            let favAirline = "--";
-            let maxCount = 0;
-            Object.entries(airlineCounts).forEach(([name, count]) => {
-                if (count > maxCount) { maxCount = count; favAirline = name; }
-            });
-
-            return {
-                flights: flightsArr.length,
-                totalKm,
-                countriesCount: countries.size,
-                favAirline,
-                co2Tons
-            };
-        }
-
-        function buildPassportQRPayload() {
-            const holder = "Arnav Dugad";
-            const passportId = normalizeSpaces(document.getElementById('pass-id')?.innerText || "FL-XXXX-X");
-            const issued = new Date().toISOString();
-
-            const stats = computePassportStatsFromFlights(window.displayFlights);
-
-            const holderShort = holder.toUpperCase().replace(/[^A-Z ]/g, "").slice(0, 16);
-            const airlineShort = normalizeSpaces(stats.favAirline).toUpperCase().replace(/[^A-Z0-9 &.\-]/g, "").slice(0, 28);
-            const co2 = stats.co2Tons.toFixed(2) + "t";
-
-            const core = `AVP|ID=${passportId}|H=${holderShort}|F=${stats.flights}|KM=${stats.totalKm}|CT=${stats.countriesCount}|AL=${airlineShort}|CO2=${co2}|ISS=${issued}`;
-            const sig = fnv1a32(core);
-            return `${core}|SIG=${sig}`;
-        }
-
-        function setPassportQRFromPayload(payload) {
-            const img = document.getElementById('passport-qr-img');
-            if (!img) return;
-
-            window.__lastPassportQrPayload = payload;
-
-            const data = encodeURIComponent(payload);
-            const bust = Date.now();
-            img.style.opacity = "0.0";
-            img.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&format=png&margin=10&data=${data}&t=${bust}`;
-
-            img.onload = () => { img.style.opacity = "1"; window.syncQrViewer(); };
-            img.onerror = () => {
-                const short = payload.split("|").filter(x => !x.startsWith("ISS=")).join("|");
-                const data2 = encodeURIComponent(short);
-                img.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&format=png&margin=10&data=${data2}&t=${Date.now()}`;
-                img.style.opacity = "1";
-                window.__lastPassportQrPayload = short;
-                window.syncQrViewer();
-            };
-        }
-
-        window.generatePassportQR = function() {
-            const payload = buildPassportQRPayload();
-            setPassportQRFromPayload(payload);
-        }
-
-        // --- QR Viewer (expand) ---
-        window.syncQrViewer = function() {
-            const modal = document.getElementById('qr-viewer-modal');
-            if (!modal || modal.classList.contains('hidden-modal')) return;
-
-            const img = document.getElementById('passport-qr-img');
-            const bigImg = document.getElementById('qr-viewer-img');
-            const text = document.getElementById('qr-viewer-text');
-
-            if (bigImg && img) bigImg.src = img.src;
-            if (text) text.textContent = window.__lastPassportQrPayload || "";
-        }
-
-        window.openQrViewer = function() {
-            const modal = document.getElementById('qr-viewer-modal');
-            if (!modal) return;
-            modal.classList.remove('hidden-modal');
-            window.syncQrViewer();
-        }
-
-        window.closeQrViewer = function() {
-            const modal = document.getElementById('qr-viewer-modal');
-            if (!modal) return;
-            modal.classList.add('hidden-modal');
-        }
-
-        window.copyQrPayload = async function() {
-            const payload = window.__lastPassportQrPayload || "";
-            try {
-                await navigator.clipboard.writeText(payload);
-                alert("QR payload copied.");
-            } catch (e) {
-                const ta = document.createElement('textarea');
-                ta.value = payload;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                ta.remove();
-                alert("QR payload copied.");
-            }
-        }
-
-        window.downloadQrPng = function() {
-            const img = document.getElementById('passport-qr-img');
-            if (!img || !img.src) return;
-            const a = document.createElement('a');
-            a.href = img.src;
-            a.download = 'aviation-passport-qr.png';
-            a.click();
-        }
-
-        window.openPassport = function() { 
-            // Ensure stats are up to date
-            window.updateUI(); 
-            const el = document.getElementById('passport-modal');
-            if(el) el.classList.remove('hidden-modal'); 
-            window.generatePassportQR();
-        }
-        window.closePassport = function() { 
-            const el = document.getElementById('passport-modal');
-            if(el) el.classList.add('hidden-modal'); 
-        }
-
-        function waitForImage(img, timeoutMs = 2500) {
-            return new Promise(resolve => {
-                if (!img) return resolve();
-                if (img.complete && img.naturalWidth > 0) return resolve();
-                let done = false;
-                const finish = () => { if (done) return; done = true; resolve(); };
-                const t = setTimeout(finish, timeoutMs);
-                img.addEventListener('load', () => { clearTimeout(t); finish(); }, { once: true });
-                img.addEventListener('error', () => { clearTimeout(t); finish(); }, { once: true });
-            });
-        }
-
-        window.downloadPassport = async function() {
-            const element = document.getElementById('passport-capture-area');
-            if(!element) return;
-
-            // Ensure QR is generated + loaded before capture
-            try { window.generatePassportQR(); } catch(e) {}
-            await waitForImage(document.getElementById('passport-qr-img'), 2500);
-
-            html2canvas(element, { backgroundColor: null, scale: 2, useCORS: true }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'my-aviation-passport.png';
-                link.href = canvas.toDataURL();
-                link.click();
-            });
-        }
-
-        // --- Data Import/Export ---
-        window.exportData = function() {
-            const dataStr = JSON.stringify(window.allFlights, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', 'my_flight_history.json');
-            linkElement.click();
-        }
-
-        window.importData = function(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const json = JSON.parse(e.target.result);
-                    if (Array.isArray(json)) {
-                        window.allFlights = json;
-                        window.populateYearFilter();
-                        window.filterFlights(); 
-                        alert("Import successful! (Note: Imports are local only until saved individually)");
-                        window.toggleSettings(); 
-                    } else { alert("Invalid file."); }
-                } catch (err) { alert("Error parsing JSON."); }
-            };
-            reader.readAsText(file);
-            input.value = ''; 
-        }
-
-        window.toggleAirports = function(checkbox) { showAirports = checkbox.checked; window.updateGlobeData(); }
-
-        window.setMapStyle = function(style) {
-            if (!world) return;
-            const btnDark = document.getElementById('btn-theme-dark');
-            const btnLight = document.getElementById('btn-theme-light');
-            if (style === 'light') {
-                world.globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-                      .backgroundImageUrl(null)
-                      .atmosphereColor('lightskyblue');
-                document.body.style.backgroundColor = '#1a202c'; 
-                if(btnLight) { btnLight.classList.add('bg-blue-600', 'text-white'); btnLight.classList.remove('hover:bg-white/10', 'text-gray-400'); }
-                if(btnDark) { btnDark.classList.remove('bg-blue-600', 'text-white'); btnDark.classList.add('hover:bg-white/10', 'text-gray-400'); }
-            } else {
-                world.globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
-                      .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
-                      .atmosphereColor('lightskyblue');
-                document.body.style.backgroundColor = '#000';
-                if(btnDark) { btnDark.classList.add('bg-blue-600', 'text-white'); btnDark.classList.remove('hover:bg-white/10', 'text-gray-400'); }
-                if(btnLight) { btnLight.classList.remove('bg-blue-600', 'text-white'); btnLight.classList.add('hover:bg-white/10', 'text-gray-400'); }
-            }
-        }
-
-        window.zoomToHome = function() { if (world) world.pointOfView({ lat: 22, lng: 78, altitude: 2.0 }, 1500); }
-        
-        window.fitToMap = function() {
-            if(!world || window.displayFlights.length === 0) return;
-            let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-            window.displayFlights.forEach(f => {
-                const s = window.airports[f.from]; const e = window.airports[f.to];
-                if(s && e) {
-                    minLat = Math.min(minLat, s.lat, e.lat); maxLat = Math.max(maxLat, s.lat, e.lat);
-                    minLng = Math.min(minLng, s.lng, e.lng); maxLng = Math.max(maxLng, s.lng, e.lng);
-                }
-            });
-            world.pointOfView({ lat: (minLat + maxLat)/2, lng: (minLng + maxLng)/2, altitude: 2.5 }, 1500);
-        }
-
-        // --- Simple Mobile Gyro Implementation ---
-        let gyroEnabled = false;
-        window.toggleGyro = function() { 
-             if (gyroEnabled) {
-                gyroEnabled = false;
-                window.removeEventListener('deviceorientation', handleGyro);
-                const status = document.getElementById('gyro-status');
-                if(status) {
-                    status.innerText = "OFF";
-                    status.className = "text-[10px] text-gray-500 uppercase";
-                }
-                if (world) world.controls().autoRotateSpeed = 0.6; // Reset to default
-                return;
-            }
-
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                // iOS 13+ devices
-                DeviceOrientationEvent.requestPermission()
-                    .then(response => {
-                        if (response === 'granted') {
-                            activateGyro();
-                        } else {
-                            alert('Permission denied');
-                        }
-                    })
-                    .catch(console.error);
-            } else {
-                // Non-iOS devices
-                activateGyro();
-            }
-        }
-
-        function activateGyro() {
-            if (gyroEnabled) return;
-            gyroEnabled = true;
-            document.getElementById('gyro-status').innerText = "ON";
-            document.getElementById('gyro-status').className = "text-[10px] text-green-400 font-bold uppercase";
-            
-            window.addEventListener('deviceorientation', handleGyro);
-            alert("Motion control enabled! Tilt phone left/right to spin.");
-        }
-
-        function handleGyro(event) {
-            if (!world || !autoRotate) return;
-            
-            // Gamma is left/right tilt in degrees (roughly -90 to 90)
-            const tilt = event.gamma; 
-            if (tilt === null) return;
-
-            // Map tilt to rotation speed
-            // Flat (0) = normal speed (0.6)
-            // Left tilt (-ve) = faster or reverse
-            // Right tilt (+ve) = faster
-            
-            const baseSpeed = 0.5;
-            const sensitivity = 0.05;
-            
-            const newSpeed = baseSpeed + (tilt * sensitivity);
-            world.controls().autoRotateSpeed = newSpeed;
-        }
-
-    </script>
-</body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+    <div class="noise" aria-hidden="true"></div>
+    <div id="globeViz" aria-label="Interactive globe showing your routes"></div>
+    <div class="globe-vignette" aria-hidden="true"></div>
+
+    <main class="app-shell" id="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="Flight Log dashboard">
+        <header class="brand-bar">
+          <button class="brand" id="brand-button" type="button" aria-label="Reset globe view">
+            <span class="brand-mark"><i class="ph-fill ph-airplane-tilt"></i></span>
+            <span>
+              <strong>Flight Log</strong>
+              <small>YOUR SKY, REMEMBERED</small>
+            </span>
+          </button>
+
+          <div class="brand-actions">
+            <button class="sync-pill" id="sync-pill" type="button" aria-label="Cloud sync status">
+              <span></span><b>Sign in</b>
+            </button>
+            <button class="icon-button desktop-only" id="collapse-sidebar" type="button" aria-label="Collapse sidebar">
+              <i class="ph ph-caret-left"></i>
+            </button>
+          </div>
+        </header>
+
+        <section class="hero-panel">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="live-dot"></span> PERSONAL AVIATION ATLAS</p>
+            <h1>Every flight becomes a <em>constellation.</em></h1>
+            <p>Log one hop or an entire connected journey. Your private travel history stays synced to your account.</p>
+          </div>
+
+          <div class="hero-actions">
+            <button class="primary-button magnetic" id="new-journey-button" type="button">
+              <i class="ph-bold ph-plus"></i><span>Log a journey</span><kbd>N</kbd>
+            </button>
+            <button class="soft-button" id="open-passport" type="button" title="Open your Flightprint">
+              <i class="ph ph-fingerprint"></i><span>Flightprint</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="metric-grid" aria-label="Travel totals">
+          <article>
+            <span>Journeys</span>
+            <strong id="metric-journeys">0</strong>
+            <small id="metric-segments">0 flights</small>
+          </article>
+          <article>
+            <span>Distance</span>
+            <strong><b id="metric-distance">0</b><small> km</small></strong>
+            <small id="metric-around-world">Your atlas is ready</small>
+          </article>
+          <article>
+            <span>Countries</span>
+            <strong id="metric-countries">0</strong>
+            <small id="metric-cities">0 cities</small>
+          </article>
+          <article class="pulse-metric">
+            <span>Sky score</span>
+            <strong id="metric-score">—</strong>
+            <small id="metric-score-label">Add your first route</small>
+          </article>
+        </section>
+
+        <section class="journeys-section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">YOUR TIMELINE</p>
+              <h2>Journeys</h2>
+            </div>
+            <button class="icon-button" id="open-intelligence-mobile" type="button" aria-label="Open travel intelligence">
+              <i class="ph ph-chart-polar"></i>
+            </button>
+          </div>
+
+          <div class="filter-row">
+            <label class="search-box">
+              <i class="ph ph-magnifying-glass"></i>
+              <input id="journey-search" type="search" placeholder="Search city, airport or airline" autocomplete="off" />
+              <button id="clear-search" type="button" aria-label="Clear search"><i class="ph-bold ph-x"></i></button>
+            </label>
+            <label class="compact-select" aria-label="Filter by year">
+              <select id="year-filter"><option value="all">All years</option></select>
+              <i class="ph-bold ph-caret-down"></i>
+            </label>
+            <label class="compact-select" aria-label="Filter by flight status">
+              <select id="status-filter">
+                <option value="all">All</option>
+                <option value="flown">Flown</option>
+                <option value="planned">Planned</option>
+              </select>
+              <i class="ph-bold ph-caret-down"></i>
+            </label>
+          </div>
+
+          <div class="journey-list" id="journey-list" aria-live="polite"></div>
+
+          <div class="empty-state" id="empty-state">
+            <div class="empty-visual" aria-hidden="true">
+              <span class="empty-orbit orbit-a"></span><span class="empty-orbit orbit-b"></span>
+              <i class="ph-duotone ph-airplane-tilt"></i>
+            </div>
+            <p class="eyebrow" id="empty-eyebrow">YOUR ATLAS IS PRISTINE</p>
+            <h3 id="empty-title">Your first route is waiting.</h3>
+            <p id="empty-copy">Sign in, add a flight or build a multi-city journey with every connection kept together.</p>
+            <button class="text-button" id="empty-action" type="button">Begin your atlas <i class="ph-bold ph-arrow-right"></i></button>
+          </div>
+        </section>
+
+        <footer class="sidebar-footer">
+          <span>© <b id="footer-year"></b> Arnav Dugad</span>
+          <span class="footer-links">
+            <button id="settings-button" type="button">Settings</button>
+            <i></i>
+            <button id="privacy-button" type="button">Privacy</button>
+          </span>
+        </footer>
+      </aside>
+
+      <button class="sidebar-reveal" id="sidebar-reveal" type="button" aria-label="Open dashboard">
+        <i class="ph-bold ph-sidebar-simple"></i><span>Flight Log</span>
+      </button>
+
+      <nav class="globe-toolbar" aria-label="Globe controls">
+        <button id="locate-india" type="button" data-tooltip="India view"><i class="ph ph-navigation-arrow"></i></button>
+        <button id="fit-routes" type="button" data-tooltip="Fit routes"><i class="ph ph-corners-out"></i></button>
+        <button id="toggle-rotation" class="active" type="button" data-tooltip="Auto rotate"><i class="ph ph-arrows-clockwise"></i></button>
+        <span></span>
+        <button id="open-intelligence" type="button" data-tooltip="Aero intelligence"><i class="ph ph-chart-polar"></i></button>
+      </nav>
+
+      <section class="intelligence-panel" id="intelligence-panel" aria-label="Aero intelligence">
+        <header>
+          <div>
+            <p class="eyebrow">LIVE MODEL</p>
+            <h2>Aero Intelligence</h2>
+          </div>
+          <button class="icon-button" id="close-intelligence" type="button" aria-label="Close intelligence panel"><i class="ph-bold ph-x"></i></button>
+        </header>
+
+        <div class="sky-score-card">
+          <div class="score-orbit"><strong id="intel-score">—</strong><small>/ 100</small></div>
+          <div>
+            <p>Your sky score</p>
+            <h3 id="intel-persona">Awaiting take-off</h3>
+            <span id="intel-score-copy">Log a journey to reveal the shape of your travel life.</span>
+          </div>
+        </div>
+
+        <div class="intel-grid">
+          <article><i class="ph-duotone ph-timer"></i><span>Air time</span><strong id="intel-hours">0h</strong></article>
+          <article><i class="ph-duotone ph-git-branch"></i><span>Connections</span><strong id="intel-connections">0</strong></article>
+          <article><i class="ph-duotone ph-leaf"></i><span>CO₂ estimate</span><strong id="intel-carbon">0 kg</strong></article>
+          <article><i class="ph-duotone ph-currency-inr"></i><span>Tracked spend</span><strong id="intel-spend">₹0</strong></article>
+        </div>
+
+        <article class="insight-card" id="connection-insight">
+          <div class="insight-icon coral"><i class="ph-duotone ph-shield-check"></i></div>
+          <div><span>CONNECTION SHIELD</span><h3 id="connection-title">No connections yet</h3><p id="connection-copy">Multi-leg journeys receive dynamic buffer analysis.</p></div>
+        </article>
+        <article class="insight-card">
+          <div class="insight-icon blue"><i class="ph-duotone ph-clock-counter-clockwise"></i></div>
+          <div><span>TIMEZONE CHOREOGRAPHY</span><h3 id="timezone-title">0 clock shifts</h3><p id="timezone-copy">Arrival-local context appears as your network grows.</p></div>
+        </article>
+        <article class="insight-card">
+          <div class="insight-icon gold"><i class="ph-duotone ph-map-pin-line"></i></div>
+          <div><span>INDIA RADAR</span><h3 id="india-title">Ready for your first Indian route</h3><p id="india-copy">Domestic coverage and favourite hubs are calculated privately.</p></div>
+        </article>
+
+        <div class="network-bars" id="network-bars"></div>
+        <p class="estimate-note">Distance, carbon and connection guidance are estimates, not operational advice.</p>
+      </section>
+    </main>
+
+    <dialog class="modal builder-modal" id="journey-modal">
+      <form method="dialog" id="journey-form">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow" id="builder-eyebrow">NEW JOURNEY</p>
+            <h2 id="builder-title">Compose your route</h2>
+            <p>One journey, every flight and connection.</p>
+          </div>
+          <button class="modal-close" type="button" data-close="journey-modal" aria-label="Close journey builder"><i class="ph-bold ph-x"></i></button>
+        </header>
+
+        <div class="builder-layout">
+          <div class="builder-main">
+            <section class="journey-basics">
+              <label>
+                <span>Journey name <small>Optional</small></span>
+                <input id="journey-name" type="text" maxlength="80" placeholder="Monsoon weekend in Goa" />
+              </label>
+              <label>
+                <span>Status</span>
+                <select id="journey-status"><option value="flown">Flown</option><option value="planned">Planned</option></select>
+              </label>
+              <label>
+                <span>Purpose</span>
+                <select id="journey-purpose">
+                  <option value="leisure">Leisure</option><option value="business">Business</option>
+                  <option value="family">Family</option><option value="education">Education</option><option value="other">Other</option>
+                </select>
+              </label>
+            </section>
+
+            <details class="magic-import">
+              <summary><span><i class="ph-duotone ph-sparkle"></i><b>Magic itinerary parser</b></span><small>Paste text → build legs</small></summary>
+              <div>
+                <textarea id="itinerary-text" rows="4" placeholder="AI 202 · DEL → BOM · 2026-08-20 · 09:15–11:25&#10;6E 531 · BOM → GOI · 2026-08-20 · 14:10–15:25"></textarea>
+                <button class="soft-button" id="parse-itinerary" type="button"><i class="ph ph-magic-wand"></i> Parse itinerary</button>
+              </div>
+            </details>
+
+            <div class="segments-heading">
+              <div><span>FLIGHT PLAN</span><strong id="segment-count">1 flight</strong></div>
+              <p>Connections inherit the previous arrival airport.</p>
+            </div>
+            <div class="segment-list" id="segment-list"></div>
+            <button class="add-segment-button" id="add-segment" type="button">
+              <span><i class="ph-bold ph-plus"></i></span><b>Add a connecting flight</b><small>Build a multi-city journey</small>
+            </button>
+
+            <section class="memory-fields">
+              <label>
+                <span>Memory capsule <small>Optional</small></span>
+                <textarea id="journey-notes" rows="3" maxlength="1000" placeholder="What made this journey memorable?"></textarea>
+              </label>
+              <label>
+                <span>Tags <small>Comma separated</small></span>
+                <input id="journey-tags" type="text" maxlength="120" placeholder="window seat, family, monsoon" />
+              </label>
+            </section>
+          </div>
+
+          <aside class="builder-preview">
+            <p class="eyebrow">JOURNEY DNA</p>
+            <div class="mini-route" id="builder-route"><span>FROM</span><i class="ph-fill ph-airplane-tilt"></i><span>TO</span></div>
+            <div class="preview-stat"><span>Distance</span><strong id="builder-distance">—</strong></div>
+            <div class="preview-stat"><span>Connections</span><strong id="builder-connections">Direct</strong></div>
+            <div class="preview-stat"><span>Clock shift</span><strong id="builder-timezone">—</strong></div>
+            <div class="preview-stat"><span>CO₂ estimate</span><strong id="builder-carbon">—</strong></div>
+            <div class="connection-preview" id="builder-shield">
+              <i class="ph-duotone ph-shield-chevron"></i><div><span>Connection Shield</span><strong>Add another flight to activate</strong></div>
+            </div>
+          </aside>
+        </div>
+
+        <footer class="modal-footer">
+          <span id="builder-save-note"><i class="ph-fill ph-cloud-check"></i> Saved privately to your Firebase account</span>
+          <div><button class="ghost-button" type="button" data-close="journey-modal">Cancel</button><button class="primary-button" id="save-journey" type="submit"><span>Save journey</span><i class="ph-bold ph-arrow-right"></i></button></div>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal auth-modal" id="auth-modal">
+      <div class="auth-visual">
+        <div class="auth-orbits" aria-hidden="true"><span></span><span></span><i class="ph-fill ph-airplane-tilt"></i></div>
+        <p class="eyebrow">PRIVATE BY DESIGN</p>
+        <h2>Your travel history deserves its own sky.</h2>
+        <p>Sign in to sync journeys securely across your devices. No public profile. No demo data. Just your flights.</p>
+        <ul><li><i class="ph-fill ph-check-circle"></i> Real-time Firebase sync</li><li><i class="ph-fill ph-check-circle"></i> One account, every device</li><li><i class="ph-fill ph-check-circle"></i> Your journeys are isolated by user ID</li></ul>
+      </div>
+      <form method="dialog" id="auth-form">
+        <button class="modal-close" type="button" data-close="auth-modal" aria-label="Close sign in"><i class="ph-bold ph-x"></i></button>
+        <div class="auth-form-copy"><p class="eyebrow" id="auth-eyebrow">WELCOME BACK</p><h2 id="auth-title">Sign in to Flight Log</h2><p id="auth-copy">Your atlas will appear the moment you sign in.</p></div>
+        <label><span>Email address</span><input id="auth-email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+        <label><span>Password</span><input id="auth-password" type="password" minlength="6" autocomplete="current-password" required placeholder="At least 6 characters" /></label>
+        <p class="form-error" id="auth-error" role="alert"></p>
+        <button class="primary-button auth-submit" id="auth-submit" type="submit"><span>Sign in</span><i class="ph-bold ph-arrow-right"></i></button>
+        <button class="google-button" id="google-auth" type="button"><span class="google-g">G</span> Continue with Google</button>
+        <div class="auth-links"><button id="toggle-auth-mode" type="button">Create an account</button><button id="forgot-password" type="button">Forgot password?</button></div>
+      </form>
+    </dialog>
+
+    <dialog class="modal detail-modal" id="detail-modal">
+      <div class="detail-shell">
+        <header class="modal-header detail-header">
+          <div><p class="eyebrow" id="detail-eyebrow">JOURNEY</p><h2 id="detail-title">—</h2><p id="detail-subtitle">—</p></div>
+          <button class="modal-close" type="button" data-close="detail-modal" aria-label="Close journey details"><i class="ph-bold ph-x"></i></button>
+        </header>
+        <div class="detail-hero">
+          <div class="detail-route" id="detail-route"></div>
+          <div class="detail-metrics" id="detail-metrics"></div>
+        </div>
+        <div class="detail-content">
+          <section><div class="segments-heading"><div><span>FLIGHT TIMELINE</span><strong id="detail-flight-count">—</strong></div></div><div class="timeline" id="detail-timeline"></div></section>
+          <aside>
+            <article class="delay-lab" id="delay-lab">
+              <div><span>WHAT-IF LAB</span><i class="ph-duotone ph-flask"></i></div>
+              <h3>Simulate a delay</h3>
+              <p>Stress-test every onward connection before the day of travel.</p>
+              <label><span>Inbound delay</span><strong id="delay-value">0 min</strong><input id="delay-slider" type="range" min="0" max="180" value="0" step="5" /></label>
+              <div id="delay-results"></div>
+            </article>
+            <article class="memory-card"><span>MEMORY CAPSULE</span><p id="detail-notes">No note added.</p><div id="detail-tags"></div></article>
+          </aside>
+        </div>
+        <footer class="modal-footer"><button class="danger-button" id="delete-journey" type="button"><i class="ph ph-trash"></i> Delete</button><div><button class="soft-button" id="duplicate-journey" type="button"><i class="ph ph-copy"></i> Duplicate</button><button class="primary-button" id="edit-journey" type="button"><i class="ph ph-pencil-simple"></i> Edit</button></div></footer>
+      </div>
+    </dialog>
+
+    <dialog class="modal passport-modal" id="passport-modal">
+      <div class="passport-shell">
+        <header class="modal-header">
+          <div><p class="eyebrow">YOUR FLIGHTPRINT</p><h2>A living portrait of your sky</h2><p>Generated only from the journeys in your account.</p></div>
+          <button class="modal-close" type="button" data-close="passport-modal" aria-label="Close Flightprint"><i class="ph-bold ph-x"></i></button>
+        </header>
+        <div class="flightprint" id="flightprint-capture">
+          <div class="flightprint-grid" aria-hidden="true"></div>
+          <div class="flightprint-top"><span class="brand-mark"><i class="ph-fill ph-airplane-tilt"></i></span><p>FLIGHT LOG<br /><small>INDIA / WORLD</small></p><b id="passport-id">FL—000000</b></div>
+          <div class="flightprint-title"><p>THIS SKY BELONGS TO</p><h2 id="passport-name">TRAVELLER</h2><span id="passport-persona">Awaiting take-off</span></div>
+          <div class="flightprint-route" id="passport-route"><span>IND</span><i class="ph-fill ph-airplane-tilt"></i><span>WORLD</span></div>
+          <div class="flightprint-stats"><div><strong id="passport-flights">0</strong><span>FLIGHTS</span></div><div><strong id="passport-km">0</strong><span>KILOMETRES</span></div><div><strong id="passport-countries">0</strong><span>COUNTRIES</span></div><div><strong id="passport-hours">0</strong><span>HOURS ALOFT</span></div></div>
+          <div class="flightprint-bottom"><span id="passport-airline">NO FAVOURITE AIRLINE YET</span><span>ISSUED <b id="passport-date"></b></span></div>
+        </div>
+        <footer class="modal-footer"><span>Share the card — never your private journey details.</span><div><button class="soft-button" id="copy-summary" type="button"><i class="ph ph-copy"></i> Copy summary</button><button class="primary-button" id="download-flightprint" type="button"><i class="ph ph-download-simple"></i> Download PNG</button></div></footer>
+      </div>
+    </dialog>
+
+    <dialog class="modal settings-modal" id="settings-modal">
+      <form method="dialog" id="settings-form">
+        <header class="modal-header"><div><p class="eyebrow">PREFERENCES & DATA</p><h2>Settings</h2><p>Preferences sync to your Firebase profile.</p></div><button class="modal-close" type="button" data-close="settings-modal" aria-label="Close settings"><i class="ph-bold ph-x"></i></button></header>
+        <div class="settings-grid">
+          <section>
+            <h3>Flight Log</h3>
+            <label><span>Display name</span><input id="setting-name" type="text" maxlength="50" placeholder="Traveller" /></label>
+            <label><span>Home airport</span><div class="airport-field"><input id="setting-home-airport" class="airport-input" type="text" autocomplete="off" placeholder="Search worldwide airports" data-code="" /><div class="airport-results"></div></div></label>
+            <label><span>Default currency</span><select id="setting-currency"><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option><option>SGD</option><option>AUD</option><option>JPY</option></select></label>
+          </section>
+          <section>
+            <h3>Experience</h3>
+            <label class="switch-row"><span><b>Ambient animation</b><small>Globe rotation and luminous motion</small></span><input id="setting-motion" type="checkbox" checked /><i></i></label>
+            <label class="switch-row"><span><b>Airport labels</b><small>Show codes around your network</small></span><input id="setting-labels" type="checkbox" checked /><i></i></label>
+            <label class="switch-row"><span><b>India-first search</b><small>Prioritise Indian airports and airlines</small></span><input id="setting-india-first" type="checkbox" checked /><i></i></label>
+          </section>
+          <section class="data-section">
+            <h3>Your data</h3>
+            <p>Export a portable JSON backup or import a previous Flight Log file. Imported records are written to your Firebase account.</p>
+            <div><button class="soft-button" id="export-data" type="button"><i class="ph ph-export"></i> Export JSON</button><label class="soft-button file-button"><i class="ph ph-import"></i> Import JSON<input id="import-data" type="file" accept="application/json,.json" /></label></div>
+            <div class="account-data-actions"><button class="danger-button" id="clear-cloud-data" type="button"><i class="ph ph-trash"></i> Delete every journey</button><button class="ghost-button" id="sign-out-button" type="button"><i class="ph ph-sign-out"></i> Sign out</button></div>
+          </section>
+        </div>
+        <footer class="modal-footer"><span id="settings-sync-note">Sign in to sync settings.</span><div><button class="ghost-button" type="button" data-close="settings-modal">Cancel</button><button class="primary-button" id="save-settings" type="submit">Save settings</button></div></footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal privacy-modal" id="privacy-modal">
+      <div><button class="modal-close" type="button" data-close="privacy-modal" aria-label="Close privacy information"><i class="ph-bold ph-x"></i></button><p class="eyebrow">PRIVACY PLAINLY</p><h2>Your atlas belongs to you.</h2><p>Flight Log stores account details, preferences and journeys in Firebase under your authenticated user ID. The interface contains no demo journeys and does not publish a social profile.</p><ul><li><i class="ph-duotone ph-lock-key"></i><span><b>User-isolated records</b>Firestore rules in this repository restrict each user path to that signed-in user.</span></li><li><i class="ph-duotone ph-eye-slash"></i><span><b>No public timeline</b>Your routes remain inside your account unless you export or share a Flightprint.</span></li><li><i class="ph-duotone ph-download-simple"></i><span><b>Portable by default</b>Export your complete journey collection as JSON at any time.</span></li></ul><button class="primary-button" type="button" data-close="privacy-modal">Understood</button></div>
+    </dialog>
+
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="app.js"></script>
+  </body>
 </html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Flight Log</title>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="55" y2="59" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#123b58"/>
+      <stop offset="1" stop-color="#06111e"/>
+    </linearGradient>
+    <linearGradient id="plane" x1="16" y1="46" x2="50" y2="17" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60f1df"/>
+      <stop offset="1" stop-color="#8bd9ff"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="url(#bg)" stroke="#66c7ff" stroke-opacity=".35"/>
+  <path d="M14 39.5 49.4 15c1.5-1 3.4.5 2.7 2.2L36.8 52.1c-.7 1.7-3.2 1.4-3.5-.4l-2.1-12.5-12.3 3.5c-2.1.6-3.7-2-1.9-3.3l9.2-6.5-10.5 3.9c-1.7.6-3-1.4-1.7-2.6l20-18-17.6 14.4-2.5 7.1c-.5 1.3.3 2.4.1 1.8Z" fill="url(#plane)"/>
+  <circle cx="50" cy="14" r="2" fill="#60f1df" opacity=".9"/>
+</svg>
